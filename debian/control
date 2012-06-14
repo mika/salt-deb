@@ -1,116 +1,122 @@
 Source: salt
 Section: admin
 Priority: optional
-Maintainer: Corey Quinn <corey@sequestered.net>
-Uploaders: Michael Prokop <mika@debian.org>
+Maintainer: Michael Prokop <mika@debian.org>
+Uploaders: Christian Hofstaedtler <christian@hofstaedtler.name>, Ulrich Dangel <mru@spamt.net>
+DM-Upload-Allowed: yes
 Build-Depends: debhelper (>= 8),
                cython,
-               python-yaml,
-               python-setuptools,
-               python-crypto,
-               python-m2crypto,
-               python-zmq (>= 2.1.9),
                libzmq-dev (>= 2.1.9),
-               python-jinja2
+               python-crypto,
+               python-jinja2,
+               python-m2crypto,
+               python-setuptools,
+               python-yaml,
+               python-zmq (>= 2.1.9)
 Standards-Version: 3.9.3
-Homepage: http://saltstack.org
-
+Homepage: http://saltstack.org/
 
 Package: salt-common
 Architecture: all
 Depends: ${python:Depends},
          ${misc:Depends},
          ${shlibs:Depends},
-         python-yaml,
-         python-crypto,
-         python-m2crypto,
-         python-zmq (>= 2.1.9),
+         msgpack-python,
          python,
+         python-crypto,
          python-jinja2,
-         msgpack-python
-Description: Shared libraries that salt requires for all packages
- This package is a powerful remote execution manager that can be used
- to administer servers in a fast and efficient way.
+         python-m2crypto,
+         python-yaml,
+         python-zmq (>= 2.1.9)
+Description: shared libraries that salt requires for all packages
+ salt is a powerful remote execution manager that can be used to
+ administer servers in a fast and efficient way.
  .
- It allows commands to be executed across large groups of servers. This
- means systems can be easily managed, but data can also be easily gathered.
- Quick introspection into running systems becomes a reality.
+ It allows commands to be executed across large groups of
+ servers. This means systems can be easily managed, but data can
+ also be easily gathered.  Quick introspection into running
+ systems becomes a reality.
  .
- Remote execution is usually used to set up a certain state on a remote
- system. Salt addresses this problem as well, the salt state system uses
- salt state files to define the state a server needs to be in.
+ Remote execution is usually used to set up a certain state on a
+ remote system. Salt addresses this problem as well, the salt
+ state system uses salt state files to define the state a server
+ needs to be in.
  .
- Between the remote execution system, and state management Salt addresses
- the backbone of cloud and data center management.
+ Between the remote execution system, and state management Salt
+ addresses the backbone of cloud and data center management.
  .
- This particular package provides shared libraries that salt-master,
- salt-minion, and salt-syndic require to function.
+ This particular package provides shared libraries that
+ salt-master, salt-minion, and salt-syndic require to function.
 
 Package: salt-master
 Architecture: all
 Depends: ${misc:Depends},
          python,
          salt-common (>= ${source:Version})
-Description: This package provides a remote manager to administer servers via salt
- This package is a powerful remote execution manager that can be used
- to administer servers in a fast and efficient way.
+Description: remote manager to administer servers via salt
+ salt is a powerful remote execution manager that can be used to
+ administer servers in a fast and efficient way.
  .
- It allows commands to be executed across large groups of servers. This
- means systems can be easily managed, but data can also be easily gathered.
- Quick introspection into running systems becomes a reality.
+ It allows commands to be executed across large groups of
+ servers. This means systems can be easily managed, but data can
+ also be easily gathered.  Quick introspection into running
+ systems becomes a reality.
  .
- Remote execution is usually used to set up a certain state on a remote
- system. Salt addresses this problem as well, the salt state system uses
- salt state files to define the state a server needs to be in.
+ Remote execution is usually used to set up a certain state on a
+ remote system. Salt addresses this problem as well, the salt
+ state system uses salt state files to define the state a server
+ needs to be in.
  .
- Between the remote execution system, and state management Salt addresses
- the backbone of cloud and data center management.
+ Between the remote execution system, and state management Salt
+ addresses the backbone of cloud and data center management.
  .
  This particular package provides the salt controller.
-
 
 Package: salt-minion
 Architecture: all
 Depends: ${misc:Depends},
          python,
          salt-common (>= ${source:Version})
-Description: This package represents the client package for salt
- This package is a powerful remote execution manager that can be used
- to administer servers in a fast and efficient way.
+Description: client package for salt, the distributed remote execution system
+ salt is a powerful remote execution manager that can be used to
+ administer servers in a fast and efficient way.
  .
- It allows commands to be executed across large groups of servers. This
- means systems can be easily managed, but data can also be easily gathered.
- Quick introspection into running systems becomes a reality.
+ It allows commands to be executed across large groups of
+ servers. This means systems can be easily managed, but data can
+ also be easily gathered.  Quick introspection into running
+ systems becomes a reality.
  .
- Remote execution is usually used to set up a certain state on a remote
- system. Salt addresses this problem as well, the salt state system uses
- salt state files to define the state a server needs to be in.
+ Remote execution is usually used to set up a certain state on a
+ remote system. Salt addresses this problem as well, the salt
+ state system uses salt state files to define the state a server
+ needs to be in.
  .
- Between the remote execution system, and state management Salt addresses
- the backbone of cloud and data center management.
+ Between the remote execution system, and state management Salt
+ addresses the backbone of cloud and data center management.
  .
  This particular package provides the worker / agent for salt.
-
 
 Package: salt-syndic
 Architecture: all
 Depends: ${misc:Depends},
          python,
          salt-master (>= ${source:Version})
-Description: This package represents the master-of-masters for salt
- This package is a powerful remote execution manager that can be used
- to administer servers in a fast and efficient way.
+Description: master-of-masters for salt, the distributed remote execution system
+ salt is a powerful remote execution manager that can be used to
+ administer servers in a fast and efficient way.
  .
- It allows commands to be executed across large groups of servers. This
- means systems can be easily managed, but data can also be easily gathered.
- Quick introspection into running systems becomes a reality.
+ It allows commands to be executed across large groups of
+ servers. This means systems can be easily managed, but data can
+ also be easily gathered.  Quick introspection into running
+ systems becomes a reality.
  .
- Remote execution is usually used to set up a certain state on a remote
- system. Salt addresses this problem as well, the salt state system uses
- salt state files to define the state a server needs to be in.
+ Remote execution is usually used to set up a certain state on a
+ remote system. Salt addresses this problem as well, the salt
+ state system uses salt state files to define the state a server
+ needs to be in.
  .
- Between the remote execution system, and state management Salt addresses
- the backbone of cloud and data center management.
+ Between the remote execution system, and state management Salt
+ addresses the backbone of cloud and data center management.
  .
- This particular package provides the master of masters for salt-- it enables
- the management of multiple masters at a time.
+ This particular package provides the master of masters for salt
+ - it enables the management of multiple masters at a time.

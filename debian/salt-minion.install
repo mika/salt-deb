@@ -1,4 +1,3 @@
 debian/minion /etc/salt
-pkg/minion.logrotate /etc/logrotate.d/salt-minion
 scripts/salt-minion /usr/bin
 scripts/salt-call /usr/bin

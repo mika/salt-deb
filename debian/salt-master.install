@@ -1,4 +1,5 @@
 debian/master /etc/salt
+pkg/master.logrotate /etc/logrotate.d/salt-master
 scripts/salt-master /usr/bin
 scripts/salt-cp /usr/bin
 scripts/salt-run /usr/bin

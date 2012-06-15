@@ -124,6 +124,7 @@ Description: master-of-masters for salt, the distributed remote execution system
 
 Package: salt-doc
 Architecture: all
+Section: doc
 Depends: ${misc:Depends}, libjs-sphinxdoc
 Description: additional documentation for salt, the distributed remote execution system
  salt is a powerful remote execution manager that can be used to

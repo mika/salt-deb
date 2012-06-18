@@ -54,6 +54,7 @@ Package: salt-master
 Architecture: all
 Depends: ${misc:Depends},
          python,
+         python-pkg-resources,
          salt-common (>= ${source:Version})
 Description: remote manager to administer servers via salt
  salt is a powerful remote execution manager that can be used to
@@ -78,6 +79,7 @@ Package: salt-minion
 Architecture: all
 Depends: ${misc:Depends},
          python,
+         python-pkg-resources,
          salt-common (>= ${source:Version})
 Description: client package for salt, the distributed remote execution system
  salt is a powerful remote execution manager that can be used to
@@ -102,6 +104,7 @@ Package: salt-syndic
 Architecture: all
 Depends: ${misc:Depends},
          python,
+         python-pkg-resources,
          salt-master (>= ${source:Version})
 Description: master-of-masters for salt, the distributed remote execution system
  salt is a powerful remote execution manager that can be used to

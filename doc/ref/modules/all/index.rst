@@ -17,9 +17,11 @@ Full list of builtin modules
     :toctree:
     :template: autosummary.rst.tmpl
 
+    aliases
     apache
     apt
     archive
+    brew
     butterkvm
     cluster
     cmdmod
@@ -28,8 +30,10 @@ Full list of builtin modules
     data
     debconfmod
     disk
+    django
     ebuild
     file
+    freebsdjail
     freebsdkmod
     freebsdpkg
     freebsdservice
@@ -38,10 +42,12 @@ Full list of builtin modules
     git
     grains
     groupadd
+    grub
     hg
     hosts
     kmod
     kvm_hyper
+    launchctl
     linux_sysctl
     mdadm
     moosefs
@@ -49,14 +55,18 @@ Full list of builtin modules
     mysql
     network
     nginx
+    osxdesktop
     pacman
     pillar
     pip
+    postgres
     ps
     publish
     puppet
     pw_group
     pw_user
+    rabbitmq_server
+    reg
     rh_ip
     rh_service
     rvm
@@ -65,6 +75,7 @@ Full list of builtin modules
     service
     shadow
     solr
+    sqlite3
     ssh
     state
     status
@@ -77,7 +88,9 @@ Full list of builtin modules
     virtualenv
     win_disk
     win_file
+    win_groupadd
     win_network
+    win_pkg
     win_service
     win_shadow
     win_useradd

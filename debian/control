@@ -12,7 +12,7 @@ Build-Depends: debhelper (>= 8),
                python-jinja2,
                python-m2crypto,
                python-setuptools,
-               python-sphinx,
+               python-sphinx (>= 1.0),
                python-yaml,
                python-zmq (>= 2.1.9)
 Standards-Version: 3.9.3

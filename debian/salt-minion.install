@@ -1,4 +1,4 @@
 debian/minion /etc/salt
-scripts/salt-minion /usr/bin
-scripts/salt-call /usr/bin
-pkg/rpm/salt-minion.service /lib/systemd/system
+usr/bin/salt-minion
+usr/bin/salt-call
+debian/salt-minion.service /lib/systemd/system

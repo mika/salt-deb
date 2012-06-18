@@ -1,2 +1,2 @@
-scripts/salt-syndic /usr/bin
-pkg/rpm/salt-syndic.service /lib/systemd/system
+usr/bin/salt-syndic
+debian/salt-syndic.service /lib/systemd/system

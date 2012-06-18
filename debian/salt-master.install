@@ -1,7 +1,7 @@
 debian/master /etc/salt
-scripts/salt-master /usr/bin
-scripts/salt-cp /usr/bin
-scripts/salt-run /usr/bin
-scripts/salt-key /usr/bin
-scripts/salt /usr/bin
-pkg/rpm/salt-master.service /lib/systemd/system
+usr/bin/salt-master
+usr/bin/salt-cp
+usr/bin/salt-run
+usr/bin/salt-key
+usr/bin/salt
+debian/salt-master.service /lib/systemd/system

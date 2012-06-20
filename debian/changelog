@@ -1,8 +1,27 @@
-salt (0.10.0-1) UNRELEASED; urgency=low
+salt (0.10.0-1) unstable; urgency=low
 
-  * New upstream release
+  [ Ulrich Dangel ]
+  * Merge new upstream release
+  * [bd10385] Change debian/source/format to quilt
+  * [ba60137] Add ignore options
+  * [54e70de] Copy service files from rpm package
+  * [1d21548] Update install files
+  * [c2737c9] Update pyversions file to use 2.6
+  * [573b27a] Update salt-common.install to install complete python
+    package
+  * [9b739f5] Update debian/rules to use python support and update
+    build dependencies
+  * [bf51e1c] Provide pydists-overrides for msgpack-python
+  * [4bbd2bf] Add dependency to python-pkg-resources for
+    salt-{minion,master,syndic}
+  * [ad8f712] Update config files to latest version
 
- -- Ulrich Dangel <mru@spamt.net>  Mon, 18 Jun 2012 19:32:53 +0200
+  [ Jeroen Dekkers ]
+  * [9ae1aa5] Unapply patches from source
+  * [933c1ee] Add debian/gbp.conf
+  * [be9529b] Add >= 1.0 to python-sphinx build-depend
+
+ -- Michael Prokop <mika@debian.org>  Wed, 20 Jun 2012 22:39:40 +0200
 
 salt (0.9.9-1) unstable; urgency=low
 

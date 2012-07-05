@@ -55,7 +55,7 @@ Architecture: all
 Depends: ${misc:Depends},
          python,
          python-pkg-resources,
-         salt-common (>= ${source:Version})
+         salt-common (= ${source:Version})
 Description: remote manager to administer servers via salt
  salt is a powerful remote execution manager that can be used to
  administer servers in a fast and efficient way.
@@ -81,7 +81,7 @@ Depends: ${misc:Depends},
          dmidecode,
          python,
          python-pkg-resources,
-         salt-common (>= ${source:Version})
+         salt-common (= ${source:Version})
 Suggests: python-augeas
 Description: client package for salt, the distributed remote execution system
  salt is a powerful remote execution manager that can be used to
@@ -107,7 +107,7 @@ Architecture: all
 Depends: ${misc:Depends},
          python,
          python-pkg-resources,
-         salt-master (>= ${source:Version})
+         salt-master (= ${source:Version})
 Description: master-of-masters for salt, the distributed remote execution system
  salt is a powerful remote execution manager that can be used to
  administer servers in a fast and efficient way.

@@ -1,3 +1,11 @@
+salt (0.10.1-2) unstable; urgency=low
+
+  * [bda6011] Add dmidecode to depends for salt-minion. (Closes: #680410)
+  * [ad4786e] Depend on the same salt version
+  * [671c2c3] Depend on debhelper version fixing #577040
+
+ -- Ulrich Dangel <uli@debian.org>  Mon, 09 Jul 2012 23:15:27 +0200
+
 salt (0.10.1-1) unstable; urgency=low
 
   [ Ulrich Dangel ]

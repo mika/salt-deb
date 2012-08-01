@@ -1,3 +1,10 @@
+salt (0.10.1-2~bpo60+2) squeeze-backports; urgency=low
+
+  * [927e019] Remove upstart files for salt-master and salt-minion
+    (Closes: #683531)
+
+ -- Ulrich Dangel <uli@debian.org>  Wed, 01 Aug 2012 17:42:55 +0200
+
 salt (0.10.1-2~bpo60+1) squeeze-backports; urgency=low
 
   * Rebuild for squeeze-backports.

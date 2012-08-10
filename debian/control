@@ -2,7 +2,7 @@ Source: salt
 Section: admin
 Priority: optional
 Maintainer: Michael Prokop <mika@debian.org>
-Uploaders: Christian Hofstaedtler <christian@hofstaedtler.name>, Ulrich Dangel <mru@spamt.net>
+Uploaders: Christian Hofstaedtler <christian@hofstaedtler.name>, Ulrich Dangel <uli@debian.org>
 DM-Upload-Allowed: yes
 Build-Depends: debhelper (>= 9.20120410~),
                cython,
@@ -78,10 +78,10 @@ Description: remote manager to administer servers via salt
 Package: salt-minion
 Architecture: all
 Depends: ${misc:Depends},
-         dmidecode,
          python,
          python-pkg-resources,
          salt-common (= ${source:Version})
+Recommends: dmidecode
 Suggests: python-augeas
 Description: client package for salt, the distributed remote execution system
  salt is a powerful remote execution manager that can be used to

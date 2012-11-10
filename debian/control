@@ -30,6 +30,7 @@ Depends: ${python:Depends},
          python-m2crypto,
          python-yaml,
          python-zmq (>= 2.1.9)
+Recommends: lsb-release
 Description: shared libraries that salt requires for all packages
  salt is a powerful remote execution manager that can be used to
  administer servers in a fast and efficient way.

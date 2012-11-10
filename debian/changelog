@@ -1,3 +1,14 @@
+salt (0.10.4-1) unstable; urgency=low
+
+  * [5431ef2] Imported Upstream version 0.10.4
+  * [bcd48a0] Remove patch 'add_hacking_rst', applied upstream.
+  * [3135d52] Fix salt-master restart (Patch by martin f. krafft)
+    (Closes: #692064)
+  * [15abbbb] Recommend lsb-release. With new upstream code this
+    provides lsb* grains. (Closes: #690700)
+
+ -- Christian Hofstaedtler <christian@hofstaedtler.name>  Sat, 10 Nov 2012 17:57:52 +0100
+
 salt (0.10.2-1~experimental+1) experimental; urgency=low
 
   * [cf57587] Import upstream version 0.10.2

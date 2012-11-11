@@ -17,6 +17,8 @@ Build-Depends: debhelper (>= 9.20120410~),
                python-zmq (>= 2.1.9)
 Standards-Version: 3.9.3
 Homepage: http://saltstack.org/
+Vcs-Browser: https://github.com/mika/salt-deb
+Vcs-Git: git://github.com/mika/salt-deb.git
 
 Package: salt-common
 Architecture: all

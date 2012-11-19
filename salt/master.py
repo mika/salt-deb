@@ -14,7 +14,6 @@ import shutil
 import stat
 import logging
 import hashlib
-import tempfile
 import datetime
 import pwd
 import getpass
@@ -40,10 +39,14 @@ import salt.pillar
 import salt.state
 import salt.runner
 import salt.auth
+import salt.wheel
+import salt.minion
+import salt.utils
 import salt.utils.atomicfile
 import salt.utils.event
 import salt.utils.verify
 import salt.utils.minions
+import salt.utils.gzip_util
 from salt.utils.debug import enable_sigusr1_handler
 
 
@@ -251,13 +254,6 @@ class Master(SMaster):
             clean_proc(reqserv.eventpublisher)
             for proc in reqserv.work_procs:
                 clean_proc(proc)
-            if os.path.isfile(self.opts['pidfile']):
-                try:
-                    os.remove(self.opts['pidfile'])
-                except (IOError, OSError):
-                    log.warn('Failed to remove master pidfile: {0}'.format(
-                        self.opts['pidfile']
-                        ))
             raise MasterExit
 
         signal.signal(signal.SIGTERM, sigterm_clean)
@@ -322,23 +318,6 @@ class Publisher(multiprocessing.Process):
                     if exc.errno == errno.EINTR:
                         continue
                     raise exc
-                if self.opts['pub_refresh']:
-                    pub_sock.close()
-                    #time.sleep(0.5)
-                    pub_sock = context.socket(zmq.PUB)
-                    try:
-                        pub_sock.setsockopt(zmq.HWM, 1)
-                    except AttributeError:
-                        pub_sock.setsockopt(zmq.SNDHWM, 1)
-                        pub_sock.setsockopt(zmq.RCVHWM, 1)
-                    con = False
-                    while not con:
-                        time.sleep(0.1)
-                        try:
-                            pub_sock.bind(pub_uri)
-                            con = True
-                        except zmq.ZMQError:
-                            pass
 
         except KeyboardInterrupt:
             pub_sock.close()
@@ -531,6 +510,8 @@ class AESFuncs(object):
         self.tops = salt.loader.tops(self.opts)
         # Make a client
         self.local = salt.client.LocalClient(self.opts['conf_file'])
+        # Create the master minion to access the external job cache
+        self.mminion = salt.minion.MasterMinion(self.opts)
 
     def __find_file(self, path, env='base'):
         '''
@@ -558,15 +539,14 @@ class AESFuncs(object):
         pub_path = os.path.join(self.opts['pki_dir'], 'minions', id_)
         with open(pub_path, 'r') as fp_:
             minion_pub = fp_.read()
-        fd_, tmp_pub = tempfile.mkstemp()
-        os.close(fd_)
+        tmp_pub = salt.utils.mkstemp()
         with open(tmp_pub, 'w+') as fp_:
             fp_.write(minion_pub)
 
         pub = None
         try:
             pub = RSA.load_pub_key(tmp_pub)
-        except RSA.RSAError, e:
+        except RSA.RSAError as e:
             log.error('Unable to load temporary public key "{0}": {1}'
                       .format(tmp_pub, e))
         try:
@@ -650,9 +630,15 @@ class AESFuncs(object):
         if not fnd['path']:
             return ret
         ret['dest'] = fnd['rel']
+        gzip = load.get('gzip', None)
+
         with open(fnd['path'], 'rb') as fp_:
             fp_.seek(load['loc'])
-            ret['data'] = fp_.read(self.opts['file_buffer_size'])
+            data = fp_.read(self.opts['file_buffer_size'])
+            if gzip and data:
+                data = salt.utils.gzip_util.compress(data, gzip)
+                ret['gzip'] = gzip
+            ret['data'] = data
         return ret
 
     def _file_hash(self, load):
@@ -786,7 +772,7 @@ class AESFuncs(object):
                     self.opts['hash_type'])
         log.info('Got return from {id} for job {jid}'.format(**load))
         self.event.fire_event(load, load['jid'])
-        if not self.opts['job_cache']:
+        if not self.opts['job_cache'] or self.opts.get('ext_job_cache'):
             return
         jid_dir = salt.utils.jid_dir(
                 load['jid'],
@@ -1000,6 +986,16 @@ class AESFuncs(object):
                         ),
                     'w+')
                 )
+        # Save the load to the ext_job_cace if it is turned on
+        if self.opts['ext_job_cache']:
+            try:
+                fstr = '{0}.save_load'.format(self.opts['ext_job_cache'])
+                self.mminion.returners[fstr](clear_load['jid'], clear_load)
+            except KeyError:
+                msg = ('The specified returner used for the external job '
+                       'cache "{0}" does not have a save_load function!'
+                       ).format(self.opts['ext_job_cache'])
+                log.critical(msg)
         payload = {'enc': 'aes'}
         expr_form = 'glob'
         timeout = 5
@@ -1061,11 +1057,11 @@ class AESFuncs(object):
         if func.startswith('__'):
             return self.crypticle.dumps({})
         # Run the func
-        try:
+        if hasattr(self, func):
             ret = getattr(self, func)(load)
-        except AttributeError as exc:
-            log.error(('Received function {0} which in unavailable on the '
-                       'master, returning False').format(exc))
+        else:
+            log.error(('Received function {0} which is unavailable on the '
+                       'master, returning False').format(func))
             return self.crypticle.dumps(False)
         # Don't encrypt the return value for the _return func
         # (we don't care about the return value, so why encrypt it?)
@@ -1085,7 +1081,7 @@ class AESFuncs(object):
                     key)
             try:
                 pub = RSA.load_pub_key(pubfn)
-            except RSA.RSAError, e:
+            except RSA.RSAError:
                 return self.crypticle.dumps({})
 
             pret = {}
@@ -1119,6 +1115,10 @@ class ClearFuncs(object):
         self.ckminions = salt.utils.minions.CkMinions(opts)
         # Make an Auth object
         self.loadauth = salt.auth.LoadAuth(opts)
+        # Stand up the master Minion to access returner data
+        self.mminion = salt.minion.MasterMinion(self.opts)
+        # Make a wheel object
+        self.wheel_ = salt.wheel.Wheel(opts)
 
     def _send_cluster(self):
         '''
@@ -1407,18 +1407,60 @@ class ClearFuncs(object):
         self.event.fire_event(eload, 'auth')
         return ret
 
-    def mk_token(self, clear_load):
+    def wheel(self, clear_load):
+        '''
+        Send a master control function back to the wheel system
+        '''
+        # All wheel ops pass through eauth
         if not 'eauth' in clear_load:
             return ''
         if not clear_load['eauth'] in self.opts['external_auth']:
             # The eauth system is not enabled, fail
             return ''
-        name = self.loadauth.load_name(clear_load)
-        if not name in self.opts['external_auth'][clear_load['eauth']]:
+        try:
+            name = self.loadauth.load_name(clear_load)
+            if not name in self.opts['external_auth'][clear_load['eauth']]:
+                return ''
+            if not self.loadauth.time_auth(clear_load):
+                return ''
+            good = self.ckminions.wheel_check(
+                    self.opts['external_auth'][clear_load['eauth']][name],
+                    clear_load['fun'])
+            if not good:
+                return ''
+            return self.wheel_.call_func(
+                    clear_load.pop('fun'),
+                    **clear_load)
+        except Exception as exc:
+            log.error(
+                    ('Exception occured in the wheel system: {0}'
+                        ).format(exc)
+                    )
             return ''
-        if not self.loadauth.time_auth(clear_load):
+
+    def mk_token(self, clear_load):
+        '''
+        Create aand return an authentication token, the clear load needs to
+        contain the eauth key and the needed authentication creds.
+        '''
+        if not 'eauth' in clear_load:
             return ''
-        return self.loadauth.mk_token(clear_load)
+        if not clear_load['eauth'] in self.opts['external_auth']:
+            # The eauth system is not enabled, fail
+            return ''
+        try:
+            name = self.loadauth.load_name(clear_load)
+            if not name in self.opts['external_auth'][clear_load['eauth']]:
+                return ''
+            if not self.loadauth.time_auth(clear_load):
+                return ''
+            return self.loadauth.mk_token(clear_load)
+        except Exception as exc:
+            log.error(
+                    ('Exception occured while authenticating: {0}'
+                        ).format(exc)
+                    )
+            return ''
 
     def publish(self, clear_load):
         '''
@@ -1429,7 +1471,14 @@ class ClearFuncs(object):
         # Check for external auth calls
         if extra.get('token', False):
             # A token was passwd, check it
-            token = self.loadauth.get_tok(extra['token'])
+            try:
+                token = self.loadauth.get_tok(extra['token'])
+            except Exception as exc:
+                log.error(
+                        ('Exception occured when generating auth token: {0}'
+                            ).format(exc)
+                        )
+                return ''
             if not token:
                 return ''
             if not token['eauth'] in self.opts['external_auth']:
@@ -1449,10 +1498,17 @@ class ClearFuncs(object):
             if not extra['eauth'] in self.opts['external_auth']:
                 # The eauth system is not enabled, fail
                 return ''
-            name = self.loadauth.load_name(extra)
-            if not name in self.opts['external_auth'][extra['eauth']]:
-                return ''
-            if not self.loadauth.time_auth(extra):
+            try:
+                name = self.loadauth.load_name(extra)
+                if not name in self.opts['external_auth'][extra['eauth']]:
+                    return ''
+                if not self.loadauth.time_auth(extra):
+                    return ''
+            except Exception as exc:
+                log.error(
+                        ('Exception occured while authenticating: {0}'
+                            ).format(exc)
+                        )
                 return ''
             good = self.ckminions.auth_check(
                     self.opts['external_auth'][extra['eauth']][name],
@@ -1466,25 +1522,26 @@ class ClearFuncs(object):
         # Verify that the caller has root on master
         elif 'user' in clear_load:
             if clear_load['user'].startswith('sudo_'):
-                if not clear_load.pop('key') == self.key.get(getpass.getuser(), ''):
+                if not clear_load.pop('key') == self.key[self.opts.get('user', 'root')]:
                     return ''
             elif clear_load['user'] == self.opts.get('user', 'root'):
                 if not clear_load.pop('key') == self.key[self.opts.get('user', 'root')]:
                     return ''
-            elif clear_load['user'] == getpass.getuser():
-                if not clear_load.pop('key') == self.key.get(getpass.getuser()):
-                    return ''
             elif clear_load['user'] == 'root':
                 if not clear_load.pop('key') == self.key.get(self.opts.get('user', 'root')):
+                    return ''
+            elif clear_load['user'] == getpass.getuser():
+                if not clear_load.pop('key') == self.key.get(clear_load['user']):
                     return ''
             else:
                 if clear_load['user'] in self.key:
                     # User is authorised, check key and check perms
                     if not clear_load.pop('key') == self.key[clear_load['user']]:
                         return ''
-                    good = False
+                    if not clear_load['user'] in self.opts['client_acl']:
+                        return ''
                     good = self.ckminions.auth_check(
-                            self.opts['client_acl'],
+                            self.opts['client_acl'][clear_load['user']],
                             clear_load['fun'],
                             clear_load['tgt'],
                             clear_load.get('tgt_type', 'glob'))
@@ -1515,6 +1572,15 @@ class ClearFuncs(object):
                 clear_load,
                 open(os.path.join(jid_dir, '.load.p'), 'w+')
                 )
+        if self.opts['ext_job_cache']:
+            try:
+                fstr = '{0}.save_load'.format(self.opts['ext_job_cache'])
+                self.mminion.returners[fstr](clear_load['jid'], clear_load)
+            except KeyError:
+                msg = ('The specified returner used for the external job '
+                       'cache "{0}" does not have a save_load function!'
+                       ).format(self.opts['ext_job_cache'])
+                log.critical(msg)
         # Set up the payload
         payload = {'enc': 'aes'}
         # Altering the contents of the publish load is serious!! Changes here
@@ -1556,7 +1622,10 @@ class ClearFuncs(object):
             )
         pub_sock.connect(pull_uri)
         pub_sock.send(self.serial.dumps(payload))
-        minions = self.ckminions.check_minions(load['tgt'], load.get('tgt_type', 'glob'))
+        minions = self.ckminions.check_minions(
+                load['tgt'],
+                load.get('tgt_type', 'glob')
+                )
         return {'enc': 'clear',
                 'load': {'jid': clear_load['jid'],
                          'minions': minions}}

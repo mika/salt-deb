@@ -6,7 +6,6 @@ Make me some salt!
 import os
 import sys
 import logging
-import getpass
 
 # Import salt libs, the try block bypasses an issue at build time so that
 # modules don't cause the build to fail
@@ -40,6 +39,7 @@ class Master(parsers.MasterOptionParser):
                     os.path.join(self.config['pki_dir'], 'minions_rejected'),
                     self.config['cachedir'],
                     os.path.join(self.config['cachedir'], 'jobs'),
+                    os.path.join(self.config['cachedir'], 'proc'),
                     os.path.dirname(self.config['log_file']),
                     self.config['sock_dir'],
                     self.config['token_dir'],
@@ -48,7 +48,7 @@ class Master(parsers.MasterOptionParser):
                 permissive=self.config['permissive_pki_access'],
                 pki_dir=self.config['pki_dir'],
                 )
-        except OSError, err:
+        except OSError as err:
             sys.exit(err.errno)
 
         self.setup_logfile_logger()
@@ -95,7 +95,7 @@ class Minion(parsers.MinionOptionParser):
                 permissive=self.config['permissive_pki_access'],
                 pki_dir=self.config['pki_dir'],
                 )
-        except OSError, err:
+        except OSError as err:
             sys.exit(err.errno)
 
         self.setup_logfile_logger()
@@ -143,7 +143,7 @@ class Syndic(parsers.SyndicOptionParser):
                     permissive=self.config['permissive_pki_access'],
                     pki_dir=self.config['pki_dir'],
                 )
-        except OSError, err:
+        except OSError as err:
             sys.exit(err.errno)
 
         self.setup_logfile_logger()

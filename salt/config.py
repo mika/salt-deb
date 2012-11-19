@@ -7,6 +7,7 @@ import glob
 import os
 import socket
 import logging
+import time
 
 # import third party libs
 import yaml
@@ -118,7 +119,8 @@ def include_config(include, opts, orig_path, verbose):
         # Catch situation where user typos path in config; also warns for
         # empty include dir (which might be by design)
         if len(glob.glob(path)) == 0:
-            msg = "Warning parsing configuration file: 'include' path/glob '{0}' matches no files"
+            msg = ('Warning parsing configuration file: "include" path/glob '
+                   '"{0}" matches no files').format(path)
             if verbose: log.warn(msg.format(path))
 
         for fn_ in glob.glob(path):
@@ -140,7 +142,9 @@ def prepend_root_dir(opts, path_options):
         if path_option in opts:
             if opts[path_option].startswith(opts['root_dir']):
                 opts[path_option] = opts[path_option][len(opts['root_dir']):]
-            opts[path_option] = salt.utils.path_join(root_dir, opts[path_option])
+            opts[path_option] = salt.utils.path_join(
+                    root_dir,
+                    opts[path_option])
 
 
 def minion_config(path):
@@ -186,7 +190,7 @@ def minion_config(path):
             'clean_dynamic_modules': True,
             'open_mode': False,
             'multiprocessing': True,
-            'sub_timeout': 60,
+            'sub_timeout': 0,
             'ipc_mode': 'ipc',
             'tcp_pub_port': 4510,
             'tcp_pull_port': 4511,
@@ -209,6 +213,7 @@ def minion_config(path):
             'default_include': 'minion.d/*.conf',
             'update_url': False,
             'update_restart_services': [],
+            'retry_dns': 30,
             }
 
     if len(opts['sock_dir']) > len(opts['cachedir']) + 10:
@@ -228,7 +233,21 @@ def minion_config(path):
     try:
         opts['master_ip'] = salt.utils.dns_check(opts['master'], True)
     except SaltClientError:
-        opts['master_ip'] = '127.0.0.1'
+        if opts['retry_dns']:
+            while True:
+                msg = ('Master hostname: {0} not found. '
+                        'Retrying in {1} seconds').format(opts['master'], 
+                                                            opts['retry_dns'])
+                log.warn(msg)
+                print msg
+                time.sleep(opts['retry_dns'])
+                try:
+                    opts['master_ip'] = salt.utils.dns_check(opts['master'], True)
+                    break
+                except SaltClientError:
+                    pass
+        else:
+            opts['master_ip'] = '127.0.0.1'
 
     opts['master_uri'] = 'tcp://{ip}:{port}'.format(ip=opts['master_ip'],
                                                     port=opts['master_port'])
@@ -276,6 +295,7 @@ def master_config(path):
             'ext_pillar': [],
             # TODO - Set this to 2 by default in 0.10.5
             'pillar_version': 1,
+            'pillar_opts': True,
             'syndic_master': '',
             'runner_dirs': [],
             'client_acl': {},
@@ -295,6 +315,7 @@ def master_config(path):
             'external_nodes': '',
             'order_masters': False,
             'job_cache': True,
+            'ext_job_cache': '',
             'minion_data_cache': True,
             'log_file': '/var/log/salt/master',
             'log_level': None,

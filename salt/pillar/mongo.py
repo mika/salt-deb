@@ -79,7 +79,7 @@ def __virtual__():
 log = logging.getLogger(__name__)
 
 
-def ext_pillar(collection='pillar', id_field='_id', re_pattern=None,
+def ext_pillar(pillar, collection='pillar', id_field='_id', re_pattern=None,
                re_replace='', fields=None):
     """
     Connect to a mongo database and read per-node pillar information.

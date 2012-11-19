@@ -1,3 +1,13 @@
+salt (0.10.5-1) unstable; urgency=low
+
+  * [f735ab9] Filter pyc files
+  * [9767709] New upstream version 0.10.5
+  * [e19352a] Install empty include dirs for salt-master and salt-minion.
+  * [8c6e20e] Build-depend on msgpack-python
+  * [8aa4e73] Update config file templates
+
+ -- Ulrich Dangel <uli@debian.org>  Mon, 19 Nov 2012 01:05:26 +0000
+
 salt (0.10.4-1) unstable; urgency=low
 
   * [5431ef2] Imported Upstream version 0.10.4

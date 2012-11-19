@@ -1,32 +1,35 @@
 '''
 Support for YUM
 '''
+
 import logging
+import os
+import re
 from collections import namedtuple
 
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 def __virtual__():
     '''
     Confine this module to yum based systems
     '''
-    # Return this for pkg on RHEL/Fedora based distros that do not ship with
-    # python 2.6 or greater.
-    dists = ('CentOS', 'Scientific', 'RedHat', 'CloudLinux')
-    if __grains__['os'] == 'Fedora':
-        if int(__grains__['osrelease'].split('.')[0]) < 11:
-            return 'pkg'
-        else:
-            return False
+    # Work only on RHEL/Fedora based distros with python 2.6 or greater
+    try:
+        os_grain = __grains__['os']
+        os_family = __grains__['os_family']
+        os_major_version = int(__grains__['osrelease'].split('.')[0])
+    except Exception:
+        return False
+
+    # Fedora <= 10 need to use this module
+    if os_grain == 'Fedora' and os_major_version < 11:
+        return 'pkg'
     else:
-        if __grains__['os'] in dists:
-            if int(__grains__['osrelease'].split('.')[0]) <= 5:
-                return 'pkg'
-            else:
-                return False
-        else:
-            return False
+        # RHEL <= 5 and all variants need to use this module
+        if os_family == 'RedHat' and os_major_version <= 5:
+            return 'pkg'
+    return False
 
 
 def _parse_yum(arg):
@@ -39,7 +42,7 @@ def _parse_yum(arg):
 
     results = []
 
-    for line in out.split('\n'):
+    for line in out.splitlines():
         if len(line.split()) == 3:
             namearchstr, pkgver, pkgstatus = line.split()
             pkgname = namearchstr.rpartition('.')[0]
@@ -58,6 +61,38 @@ def _list_removed(old, new):
         if pkg not in new:
             pkgs.append(pkg)
     return pkgs
+
+
+def _parse_pkg_meta(path):
+    '''
+    Retrieve package name and version number from package metadata
+    '''
+    name = ''
+    version = ''
+    rel = ''
+    result = __salt__['cmd.run_all']('rpm -qpi "{0}"'.format(path))
+    if result['retcode'] == 0:
+        for line in result['stdout'].split('\n'):
+            # Older versions of rpm command produce two-column output when run
+            # with -qpi. So, regexes should not look for EOL after capture
+            # group.
+            if not name:
+                m = re.match('^Name\s*:\s*(\S+)',line)
+                if m:
+                    name = m.group(1)
+                    continue
+            if not version:
+                m = re.match('^Version\s*:\s*(\S+)',line)
+                if m:
+                    version = m.group(1)
+                    continue
+            if not rel:
+                m = re.match('^Release\s*:\s*(\S+)',line)
+                if m:
+                    version = m.group(1)
+                    continue
+    if rel: version += '-{0}'.format(rel)
+    return name,version
 
 
 def available_version(name):
@@ -138,39 +173,73 @@ def refresh_db():
     return True
 
 
-def install(pkg, refresh=False, repo='', skip_verify=False, **kwargs):
+def install(name, refresh=False, repo='', skip_verify=False, source=None,
+            **kwargs):
     '''
     Install the passed package
 
-    pkg
+    name
         The name of the package to be installed
-    refresh : False
+
+    refresh
         Clean out the yum database before executing
-    repo : (default)
-        Specify a package repository to install from
+
+    repo
+        Specify a package repository from which to install the package
         (e.g., ``yum --enablerepo=somerepo``)
-    skip_verify : False
+
+    skip_verify
         Skip the GPG verification check (e.g., ``--nogpgcheck``)
 
     Return a dict containing the new package names and versions::
 
         {'<package>': {'old': '<old-version>',
-                   'new': '<new-version>']}
+                       'new': '<new-version>']}
 
     CLI Example::
 
         salt '*' pkg.install <package name>
     '''
-    old = list_pkgs()
+
+    if source is not None:
+        if __salt__['config.valid_fileproto'](source):
+            # Cached RPM from master
+            pkg_file = __salt__['cp.cache_file'](source)
+            pkg_type = 'remote'
+        else:
+            # RPM file local to the minion
+            pkg_file = source
+            pkg_type = 'local'
+        pname,pversion = _parse_pkg_meta(pkg_file)
+        if not pname:
+            pkg_file = None
+            if pkg_type == 'remote':
+                log.error('Failed to cache {0}. Are you sure this path is '
+                          'correct?'.format(source))
+            elif pkg_type == 'local':
+                if not os.path.isfile(source):
+                    log.error('Package file {0} not found. Are you sure this '
+                              'path is correct?'.format(source))
+                else:
+                    log.error('Unable to parse package metadata for '
+                              '{0}'.format(source))
+        elif name != pname:
+            pkg_file = None
+            log.error('Package file {0} (Name: {1}) does not match the '
+                      'specified package name ({2})'.format(source,
+                                                            pname,
+                                                            name))
+        # Don't proceed if there was a problem with the package file
+        if pkg_file is None: return {}
 
     cmd = 'yum -y {repo} {gpgcheck} install {pkg}'.format(
         repo='--enablerepo={0}'.format(repo) if repo else '',
         gpgcheck='--nogpgcheck' if skip_verify else '',
-        pkg=pkg,
+        pkg=pkg_file if source is not None else name,
     )
 
-    if refresh:
-        refresh_db()
+    if refresh: refresh_db()
+    old = list_pkgs()
     __salt__['cmd.retcode'](cmd)
     new = list_pkgs()
     pkgs = {}

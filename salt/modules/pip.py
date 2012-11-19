@@ -4,9 +4,9 @@ Install Python packages with pip to either the system or a virtualenv
 # Import Python libs
 import os
 import logging
-import tempfile
 import shutil
 # Import Salt libs
+import salt.utils
 from salt._compat import string_types
 from salt.exceptions import CommandExecutionError, CommandNotFoundError
 
@@ -177,8 +177,7 @@ def install(pkgs=None,
     if requirements:
         if requirements.startswith('salt://'):
             req = __salt__['cp.cache_file'](requirements)
-            fd_, treq = tempfile.mkstemp()
-            os.close(fd_)
+            treq = salt.utils.mkstemp()
             shutil.copyfile(req, treq)
         else:
             treq = requirements
@@ -238,7 +237,7 @@ def install(pkgs=None,
             raise Exception(
                 '\'{0}\' must be a valid url'.format(extra_index_url)
             )
-        cmd = '{cmd} --extra-index_url="{extra_index_url}" '.format(
+        cmd = '{cmd} --extra-index-url="{extra_index_url}" '.format(
             cmd=cmd, extra_index_url=extra_index_url)
 
     if no_index:
@@ -263,7 +262,7 @@ def install(pkgs=None,
             cmd=cmd, download=download)
 
     if download_cache:
-        cmd = '{cmd} --download_cache={download_cache} '.format(
+        cmd = '{cmd} --download-cache={download_cache} '.format(
             cmd=cmd, download_cache=download_cache)
 
     if source:
@@ -302,7 +301,7 @@ def install(pkgs=None,
     try:
         result = __salt__['cmd.run_all'](cmd, runas=runas, cwd=cwd)
     finally:
-        if treq:
+        if treq and requirements.startswith('salt://'):
             try:
                 os.remove(treq)
             except Exception:
@@ -373,8 +372,7 @@ def uninstall(pkgs=None,
     if requirements:
         if requirements.startswith('salt://'):
             req = __salt__['cp.cache_file'](requirements)
-            fd_, treq = tempfile.mkstemp()
-            os.close(fd_)
+            treq = salt.utils.mkstemp()
             shutil.copyfile(req, treq)
         cmd = '{cmd} --requirements "{requirements}" '.format(
             cmd=cmd, requirements=treq or requirements)
@@ -404,7 +402,7 @@ def uninstall(pkgs=None,
 
     result = __salt__['cmd.run_all'](cmd, runas=runas, cwd=cwd)
 
-    if treq:
+    if treq and requirements.startswith('salt://'):
         try:
             os.remove(treq)
         except Exception:
@@ -451,7 +449,7 @@ def freeze(bin_env=None,
     if result['retcode'] > 0:
         raise CommandExecutionError(result['stderr'])
 
-    return result['stdout'].split('\n')
+    return result['stdout'].splitlines()
 
 
 def list(prefix='',
@@ -474,7 +472,7 @@ def list(prefix='',
     if result['retcode'] > 0:
         raise CommandExecutionError(result['stderr'])
 
-    for line in result['stdout'].split('\n'):
+    for line in result['stdout'].splitlines():
         if line.startswith('-e'):
             line = line.split('-e ')[1]
             line, name = line.split('#egg=')

@@ -43,8 +43,11 @@ Full Table of Contents
     ref/pillar/*
     ref/pillar/all/index
     ref/tops/*
-    ref/topstops/all/index
+    ref/tops/all/index
     ref/runners/index
+    ref/runners/all/index
+    ref/wheel/all/index
+    ref/output/all/index
     ref/peer
     ref/clientacl
     ref/syndic
@@ -53,6 +56,7 @@ Full Table of Contents
     ref/file_server/file_roots
     ref/file_server/dynamic-modules
     ref/configuration/*
+    ref/internals/index
 
     ref/cli/index
     ref/cli/salt

@@ -16,6 +16,7 @@ import traceback
 
 # Import Salt libs
 from salt.exceptions import LoaderError
+from salt.template import check_render_pipe_str
 
 log = logging.getLogger(__name__)
 salt_base_path = os.path.dirname(salt.__file__)
@@ -90,7 +91,7 @@ def returners(opts, functions):
     load = _create_loader(opts, 'returners', 'returner')
     pack = {'name': '__salt__',
             'value': functions}
-    return load.filter_func('returner', pack)
+    return load.gen_functions(pack)
 
 
 def pillars(opts, functions):
@@ -109,6 +110,22 @@ def tops(opts):
     '''
     load = _create_loader(opts, 'tops', 'top')
     return load.filter_func('top')
+
+
+def wheels(opts):
+    '''
+    Returns the returner modules
+    '''
+    load = _create_loader(opts, 'wheel', 'wheel')
+    return load.gen_functions()
+
+
+def outputters(opts):
+    '''
+    Returns the returner modules
+    '''
+    load = _create_loader(opts, 'output', 'output')
+    return load.filter_func('output')
 
 
 def auth(opts):
@@ -139,7 +156,7 @@ def render(opts, functions):
     pack = {'name': '__salt__',
             'value': functions}
     rend = load.filter_func('render', pack)
-    if opts['renderer'] not in rend:
+    if not check_render_pipe_str(opts['renderer'], rend):
         err = ('The renderer {0} is unavailable, this error is often because '
                'the needed software is unavailable'.format(opts['renderer']))
         log.critical(err)
@@ -488,9 +505,16 @@ class Loader(object):
                         pass
 
             if virtual_enable:
-                if hasattr(mod, '__virtual__'):
-                    if callable(mod.__virtual__):
-                        virtual = mod.__virtual__()
+                try:
+                    if hasattr(mod, '__virtual__'):
+                        if callable(mod.__virtual__):
+                            virtual = mod.__virtual__()
+                except Exception:
+                    virtual = False
+                    trb = traceback.format_exc()
+                    log.critical(('Failed to read the virtual function for '
+                        'module: {0}\nWith traceback: {1}').format(
+                            mod.__name__[mod.__name__.rindex('.')+1:], trb))
 
             for attr in dir(mod):
                 if attr.startswith('_'):
@@ -518,6 +542,8 @@ class Loader(object):
         for mod in modules:
             if not hasattr(mod, '__salt__'):
                 mod.__salt__ = funcs
+            elif not pack:
+                mod.__salt__.update(funcs)
         return funcs
 
     def _apply_outputter(self, func, mod):

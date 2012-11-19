@@ -24,6 +24,65 @@ class CPModuleTest(integration.ModuleCase):
             self.assertIn('KNIGHT:  They\'re nervous, sire.', data)
             self.assertNotIn('bacon', data)
 
+    def test_get_file_templated_paths(self):
+        '''
+        cp.get_file
+        '''
+        tgt = os.path.join(integration.TMP, 'cheese')
+        self.run_function(
+            'cp.get_file',
+            [
+                'salt://{{grains.test_grain}}',
+                tgt.replace('cheese', '{{grains.test_grain}}')
+            ],
+            template='jinja'
+        )
+        with open(tgt, 'r') as cheese:
+            data = cheese.read()
+            self.assertIn('Gromit', data)
+            self.assertNotIn('bacon', data)
+
+    def test_get_file_gzipped(self):
+        '''
+        cp.get_file
+        '''
+        tgt = os.path.join(integration.TMP, 'file.big')
+        src = os.path.join(integration.FILES, 'file/base/file.big')
+        with open(src, 'r') as fp_:
+            hash = hashlib.md5(fp_.read()).hexdigest()
+
+        self.run_function(
+            'cp.get_file',
+            [
+                'salt://file.big',
+                tgt,
+            ],
+            gzip=5
+        )
+        with open(tgt, 'r') as scene:
+            data = scene.read()
+            self.assertIn('KNIGHT:  They\'re nervous, sire.', data)
+            self.assertNotIn('bacon', data)
+            self.assertEqual(hash, hashlib.md5(data).hexdigest())
+
+    def test_get_file_makedirs(self):
+        '''
+        cp.get_file
+        '''
+        tgt = os.path.join(integration.TMP, 'make/dirs/scene33')
+        self.run_function(
+            'cp.get_file',
+            [
+                'salt://grail/scene33',
+                tgt,
+            ],
+            makedirs=True
+        )
+        with open(tgt, 'r') as scene:
+            data = scene.read()
+            self.assertIn('KNIGHT:  They\'re nervous, sire.', data)
+            self.assertNotIn('bacon', data)
+
     def test_get_template(self):
         '''
         cp.get_template
@@ -52,6 +111,23 @@ class CPModuleTest(integration.ModuleCase):
                     'salt://grail',
                     tgt
                 ])
+        self.assertIn('grail', os.listdir(tgt))
+        self.assertIn('36', os.listdir(os.path.join(tgt, 'grail')))
+        self.assertIn('empty', os.listdir(os.path.join(tgt, 'grail')))
+        self.assertIn('scene', os.listdir(os.path.join(tgt, 'grail', '36')))
+
+    def test_get_dir_templated_paths(self):
+        '''
+        cp.get_dir
+        '''
+        tgt = os.path.join(integration.TMP, 'many')
+        self.run_function(
+            'cp.get_dir',
+            [
+                'salt://{{grains.script}}',
+                tgt.replace('many', '{{grains.alot}}')
+            ]
+        )
         self.assertIn('grail', os.listdir(tgt))
         self.assertIn('36', os.listdir(os.path.join(tgt, 'grail')))
         self.assertIn('empty', os.listdir(os.path.join(tgt, 'grail')))

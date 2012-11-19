@@ -54,7 +54,7 @@ def _getargs(func):
         aspec = inspect.getargspec(func.__call__)
         del aspec.args[0]  # self
     else:
-        raise TypeError("Cannot inspect argument list for '{0}'".format(func))
+        raise TypeError('Cannot inspect argument list for "{0}"'.format(func))
 
     return aspec
 
@@ -182,6 +182,7 @@ class State(object):
         self.opts = opts
         self.opts['pillar'] = self.__gather_pillar()
         self.load_modules()
+        self.active = set()
         self.mod_init = set()
         self.__run_num = 0
 
@@ -598,9 +599,9 @@ class State(object):
                             else:
                                 chunk.update(arg)
                 if names:
-                    for name in names:
+                    for low_name in names:
                         live = copy.deepcopy(chunk)
-                        live['name'] = name
+                        live['name'] = low_name
                         for fun in funcs:
                             live['fun'] = fun
                             chunks.append(live)
@@ -915,6 +916,7 @@ class State(object):
                 running = self.call_chunk(low, running, chunks)
                 if self.check_failhard(low, running):
                     return running
+            self.active = set()
         return running
 
     def check_failhard(self, low, running):
@@ -992,6 +994,7 @@ class State(object):
         '''
         self._mod_init(low)
         tag = _gen_tag(low)
+        self.active.add(tag)
         requisites = ('require', 'watch')
         status = self.check_requisite(low, running, chunks)
         if status == 'unmet':
@@ -1031,6 +1034,9 @@ class State(object):
                 # it has not been run already
                 ctag = _gen_tag(chunk)
                 if ctag not in running:
+                    if ctag in self.active:
+                        log.error('Recursive requisite found')
+                        return running
                     running = self.call_chunk(chunk, running, chunks)
                     if self.check_failhard(chunk, running):
                         running['__FAILHARD__'] = True
@@ -1466,11 +1472,10 @@ class BaseHighState(object):
                         errors.append(err)
                     else:
                         for inc_sls in state.pop('include'):
-                            for sub_sls in fnmatch.filter(
-                                    self.avail[env], inc_sls):
-                                if sub_sls not in mods:
+                            if fnmatch.filter(self.avail[env], inc_sls):
+                                if inc_sls not in mods:
                                     nstate, mods, err = self.render_state(
-                                            sub_sls,
+                                            inc_sls,
                                             env,
                                             mods
                                             )
@@ -1478,6 +1483,13 @@ class BaseHighState(object):
                                     state.update(nstate)
                                 if err:
                                     errors += err
+                            else:
+                                msg = ('Specified SLS {0} in environment {1} '
+                                       'is not available on the salt master'
+                                       ).format(inc_sls, env)
+                                log.error(msg)
+                                if self.opts['failhard']:
+                                    errors.append(msg)
                 if 'extend' in state:
                     ext = state.pop('extend')
                     for name in ext:
@@ -1635,14 +1647,12 @@ class BaseHighState(object):
         #File exists so continue
         err = []
         top = self.get_top()
-        if not top:
-            msg = ('Top data not found. Either this minion is not matched '
-                   'in the top file or the top file was not found on the '
-                   'master')
-            ret[tag_name]['comment'] = msg
-            return ret
         err += self.verify_tops(top)
         matches = self.top_matches(top)
+        if not matches:
+            msg = ('No Top file or external nodes data matches found')
+            ret[tag_name]['comment'] = msg
+            return ret
         self.load_dynamic(matches)
         high, errors = self.render_highstate(matches)
         err += errors

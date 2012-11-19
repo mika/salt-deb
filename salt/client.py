@@ -29,7 +29,6 @@ The data structure needs to be:
 # This means that the primary client to build is, the LocalClient
 
 import os
-import sys
 import glob
 import time
 import getpass
@@ -40,7 +39,9 @@ import salt.payload
 import salt.utils
 import salt.utils.verify
 import salt.utils.event
+import salt.utils.minions
 from salt.exceptions import SaltInvocationError
+from salt.exceptions import EauthAuthenticationError
 
 # Try to import range from https://github.com/ytoolshed/range
 RANGE = False
@@ -83,7 +84,7 @@ class LocalClient(object):
             if self.opts.get('user', 'root') != 'root':
                 key_user = self.opts.get('user', 'root')
         if key_user.startswith('sudo_'):
-            key_user = 'root'
+            key_user = self.opts.get('user', 'root')
         keyfile = os.path.join(
                 self.opts['cachedir'], '.{0}_key'.format(key_user)
                 )
@@ -142,9 +143,8 @@ class LocalClient(object):
         '''
         if not pub_data:
             err = ('Failed to authenticate, is this user permitted to execute '
-                   'commands?\n')
-            sys.stderr.write(err)
-            sys.exit(4)
+                   'commands?')
+            raise EauthAuthenticationError(err)
 
         # Failed to connect to the master and send the pub
         if not 'jid' in pub_data or pub_data['jid'] == '0':
@@ -783,39 +783,6 @@ class LocalClient(object):
             yield ret
             time.sleep(0.02)
 
-
-    def find_cmd(self, cmd):
-        '''
-        Hunt through the old salt calls for when cmd was run, return a dict:
-        {'<jid>': <return_obj>}
-        '''
-        job_dir = os.path.join(self.opts['cachedir'], 'jobs')
-        ret = {}
-        for jid in os.listdir(job_dir):
-            jid_dir = salt.utils.jid_dir(
-                    jid,
-                    self.opts['cachedir'],
-                    self.opts['hash_type']
-                    )
-            loadp = os.path.join(jid_dir, '.load.p')
-            if os.path.isfile(loadp):
-                try:
-                    load = self.serial.load(open(loadp, 'r'))
-                    if load['fun'] == cmd:
-                        # We found a match! Add the return values
-                        ret[jid] = {}
-                        for host in os.listdir(jid_dir):
-                            host_dir = os.path.join(jid_dir, host)
-                            retp = os.path.join(host_dir, 'return.p')
-                            if not os.path.isfile(retp):
-                                continue
-                            ret[jid][host] = self.serial.load(open(retp))
-                except Exception:
-                    continue
-            else:
-                continue
-        return ret
-
     def pub(self, 
             tgt, 
             fun, 
@@ -871,6 +838,13 @@ class LocalClient(object):
         if expr_form == 'range' and RANGE:
             tgt = self._convert_range_to_list(tgt)
             expr_form = 'list'
+
+        # If an external job cache is specified add it to the ret list
+        if self.opts.get('ext_job_cache'):
+            if ret:
+                ret += ',{0}'.format(self.opts['ext_job_cache'])
+            else:
+                ret = self.opts['ext_job_cache']
 
         # format the payload - make a function that does this in the payload
         #   module

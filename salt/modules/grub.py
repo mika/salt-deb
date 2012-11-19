@@ -2,7 +2,12 @@
 Support for GRUB
 '''
 
+# TODO: Support grub2
+
 import os
+
+from salt.utils import memoize
+from salt.exceptions import CommandExecutionError
 
 def __virtual__():
     '''
@@ -10,21 +15,18 @@ def __virtual__():
     '''
     conf = _detect_conf()
     if os.path.exists(conf):
-        return 'boot'
+        return 'grub'
     return False
 
+@memoize
 def _detect_conf():
     '''
     GRUB conf location differs depending on distro
     '''
-    conf = ('CentOS', 'Scientific', 'RedHat', 'Fedora', 'CloudLinux')
-    menu = ('Ubuntu', 'Debian', 'Arch')
-    if __grains__['os'] in conf:
+    if __grains__['os_family'] == 'RedHat':
         return '/boot/grub/grub.conf'
-    elif __grains__['os'] in menu:
-        return '/boot/grub/menu.lst'
-    else:
-        return '/boot/grub/menu.lst'
+    # Defaults for Ubuntu, Debian, Arch, and others
+    return '/boot/grub/menu.lst'
 
 def version():
     '''
@@ -51,35 +53,41 @@ def conf():
     instanza = 0
     ret = {}
     pos = 0
-    for line in open(_detect_conf(), 'r'):
-        if line.startswith('#'):
-            continue
-        if line.startswith('\n'):
-            instanza = 0
-            if 'title' in stanza:
+    try:
+        with open(_detect_conf(), 'r') as _fp:
+            for line in _fp:
+                if line.startswith('#'):
+                    continue
+                if line.startswith('\n'):
+                    instanza = 0
+                    if 'title' in stanza:
+                        stanza += 'order {0}'.format(pos)
+                        pos += 1
+                        stanzas.append(stanza)
+                    stanza = ''
+                    continue
+                if line.startswith('title'):
+                    instanza = 1
+                if instanza == 1:
+                    stanza += line
+                if instanza == 0:
+                    key, value = _parse_line(line)
+                    ret[key] = value
+            if instanza == 1:
+                if not line.endswith('\n'):
+                    line += '\n'
+                stanza += line
                 stanza += 'order {0}'.format(pos)
                 pos += 1
                 stanzas.append(stanza)
-            stanza = ''
-            continue
-        if line.startswith('title'):
-            instanza = 1
-        if instanza == 1:
-            stanza += line
-        if instanza == 0:
-            key, value = _parse_line(line)
-            ret[key] = value
-    if instanza == 1:
-        if not line.endswith('\n'):
-            line += '\n'
-        stanza += line
-        stanza += 'order {0}'.format(pos)
-        pos += 1
-        stanzas.append(stanza)
+    except (IOError, OSError) as exc:
+        msg = "Could not read grub config: {0}"
+        raise CommandExecutionError(msg.format(str(exc)))
+
     ret['stanzas'] = []
     for stanza in stanzas:
         mydict = {}
-        for line in stanza.strip().split('\n'):
+        for line in stanza.strip().splitlines():
             key, value = _parse_line(line)
             mydict[key] = value
         ret['stanzas'].append(mydict)

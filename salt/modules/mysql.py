@@ -100,10 +100,10 @@ def connect(**kwargs):
             key = name
         if name in kwargs:
             connargs[key] = kwargs[name]
-        elif 'mysql.{0}'.format(name) in __opts__:
-            connargs[key] = __opts__['mysql.{0}'.format(name)]
-        elif 'mysql.{0}'.format(name) in __pillar__:
-            connargs[key] = __pillar__['mysql.{0}'.format(name)]
+        else:
+            val = __salt__['config.option']('mysql.{0}'.format(name), None)
+            if val is not None:
+                connargs[key] = val
 
     _connarg('host')
     _connarg('user')

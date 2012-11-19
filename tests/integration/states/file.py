@@ -1,8 +1,12 @@
 '''
 Tests for the file state
 '''
+
+# Import python libs
 import os
 import shutil
+
+# Import salt libs
 import integration
 
 
@@ -156,7 +160,41 @@ class FileTest(integration.ModuleCase):
         self.assertFalse(os.path.isfile(os.path.join(name, '36', 'scene')))
         result = self.state_result(ret)
         self.assertIsNone(result)
-        os.removedirs(name)
+        self.assertFalse(os.path.exists(name))
+
+    def test_recurse_template(self):
+        '''
+        file.recurse with jinja template enabled
+        '''
+        _ts = 'TEMPLATE TEST STRING'
+        name = os.path.join(integration.TMP, 'recurse_template_dir')
+        ret = self.run_state(
+            'file.recurse', name=name, source='salt://grail',
+            template='jinja', defaults={'spam': _ts})
+        result = self.state_result(ret)
+        self.assertTrue(result)
+        self.assertIn(_ts, open(os.path.join(name, 'scene33'), 'r').read())
+        shutil.rmtree(name, ignore_errors=True)
+
+    def test_recurse_clean(self):
+        '''
+        file.recurse with clean=True
+        '''
+        name = os.path.join(integration.TMP, 'recurse_clean_dir')
+        os.makedirs(name)
+        strayfile = os.path.join(name, 'strayfile')
+        open(strayfile, 'w').close()
+        # Corner cases: replacing file with a directory and vice versa
+        open(os.path.join(name, '36'), 'w').close()
+        os.makedirs(os.path.join(name, 'scene33'))
+        ret = self.run_state(
+            'file.recurse', name=name, source='salt://grail', clean=True)
+        result = self.state_result(ret)
+        self.assertTrue(result)
+        self.assertFalse(os.path.exists(strayfile))
+        self.assertTrue(os.path.isfile(os.path.join(name, '36', 'scene')))
+        self.assertTrue(os.path.isfile(os.path.join(name, 'scene33')))
+        shutil.rmtree(name, ignore_errors=True)
 
     def test_sed(self):
         '''
@@ -374,7 +412,9 @@ class FileTest(integration.ModuleCase):
         '''
         # let's make use of existing state to create a file with contents to
         # test against
-        tmp_file_append = '/tmp/salttest/test.append'
+        tmp_file_append = os.path.join(
+            integration.TMP, 'test.append'
+        )
         if os.path.isfile(tmp_file_append):
             os.remove(tmp_file_append)
         self.run_function('state.sls', mods='testappend')
@@ -401,6 +441,9 @@ class FileTest(integration.ModuleCase):
 
             self.assertEqual(contents, open(tmp_file_append, 'r').read())
 
+        except AssertionError:
+            shutil.copy(tmp_file_append, tmp_file_append + '.bak')
+            raise
         finally:
             if os.path.isfile(tmp_file_append):
                 os.remove(tmp_file_append)
@@ -436,6 +479,85 @@ class FileTest(integration.ModuleCase):
         result = self.state_result(ret, raw=True)
         self.assertEqual(result['comment'], 'Patch is already applied')
         self.assertEqual(result['result'], True)
+
+    def test_issue_2401_file_comment(self):
+        # Get a path to the temporary file
+        tmp_file = os.path.join(integration.TMP, 'issue-2041-comment.txt')
+        # Write some data to it
+        open(tmp_file, 'w').write('hello\nworld\n')
+        # create the sls template
+        template_lines = [
+            "{0}:".format(tmp_file),
+            "  file.comment:",
+            "    - regex: ^world"
+        ]
+        template = '\n'.join(template_lines)
+        try:
+            ret = self.run_function('state.template_str', [template])
+
+            self.assertTrue(isinstance(ret, dict)), ret
+            self.assertNotEqual(ret, {})
+
+            for part in ret.itervalues():
+                self.assertTrue(part['result'])
+                self.assertNotEqual(
+                    part['comment'], 'Pattern already commented'
+                )
+                self.assertEqual(
+                    part['comment'], 'Commented lines successfully'
+                )
+
+            # This next time, it is already commented.
+            ret = self.run_function('state.template_str', [template])
+
+            self.assertTrue(isinstance(ret, dict)), ret
+            self.assertNotEqual(ret, {})
+
+            for part in ret.itervalues():
+                self.assertTrue(part['result'])
+                self.assertEqual(
+                    part['comment'], 'Pattern already commented'
+                )
+        except AssertionError:
+            shutil.copy(tmp_file, tmp_file + '.bak')
+            raise
+        finally:
+            if os.path.isfile(tmp_file):
+                os.remove(tmp_file)
+
+    def test_issue_2379_file_append(self):
+        # Get a path to the temporary file
+        tmp_file = os.path.join(integration.TMP, 'issue-2379-file-append.txt')
+        # Write some data to it
+        open(tmp_file, 'w').write(
+            'hello\nworld\n' +          # Some junk
+            '#PermitRootLogin yes\n' +  # Commented text
+            '# PermitRootLogin yes\n'   # Commented text with space
+        )
+        # create the sls template
+        template_lines = [
+            "{0}:".format(tmp_file),
+            "  file.append:",
+            "    - text: PermitRootLogin yes"
+        ]
+        template = '\n'.join(template_lines)
+        try:
+            ret = self.run_function('state.template_str', [template])
+
+            self.assertTrue(isinstance(ret, dict)), ret
+            self.assertNotEqual(ret, {})
+
+            for part in ret.itervalues():
+                self.assertTrue(part['result'])
+                self.assertEqual(
+                    part['comment'], 'Appended 1 lines'
+                )
+        except AssertionError:
+            shutil.copy(tmp_file, tmp_file + '.bak')
+            raise
+        finally:
+            if os.path.isfile(tmp_file):
+                os.remove(tmp_file)
 
 
 if __name__ == '__main__':

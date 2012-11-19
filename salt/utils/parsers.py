@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 '''
-    salt.utils.parsers
-    ~~~~~~~~~~~~~~~~~~
+salt.utils.parsers
+~~~~~~~~~~~~~~~~~~
 
-    :copyright: © 2012 UfSoft.org - :email:`Pedro Algarvio (pedro@algarvio.me)`
-    :license: Apache 2.0, see LICENSE for more details.
+:copyright: © 2012 UfSoft.org - :email:`Pedro Algarvio (pedro@algarvio.me)`
+:license: Apache 2.0, see LICENSE for more details.
 '''
 
 import os
@@ -297,12 +297,24 @@ class LogLevelMixIn(object):
 
     def setup_logfile_logger(self):
         lfkey = 'key_logfile' if 'key' in self.get_prog_name() else 'log_file'
+        if self.config.get('log_level_logfile', None) is None:
+            # Remove it from config so it inherits from log_level
+            self.config.pop('log_level_logfile', None)
         loglevel = self.config.get(
             'log_level_logfile', self.config['log_level']
         )
+
+        if self.config.get('log_fmt_logfile', None) is None:
+            # Remove it from config so it inherits from log_fmt_console
+            self.config.pop('log_fmt_logfile', None)
         logfmt = self.config.get(
             'log_fmt_logfile', self.config['log_fmt_console']
         )
+
+        if self.config.get('log_datefmt', None) is None:
+            # Remove it from config so it get's the default value bellow
+            self.config.pop('log_datefmt', None)
+
         datefmt = self.config.get('log_datefmt', '%Y-%m-%d %H:%M:%S')
         log.setup_logfile_logger(
             self.config[lfkey],
@@ -368,7 +380,7 @@ class PidfileMixin(object):
 
     def set_pidfile(self):
         from salt.utils.process import set_pidfile
-        set_pidfile(self.config['pidfile'])
+        set_pidfile(self.config['pidfile'], self.config['user'])
 
 
 class TargetOptionsMixIn(object):
@@ -536,29 +548,35 @@ class OutputOptionsMixIn(object):
             '--raw-out',
             default=False,
             action='store_true',
-            help=('Print the output from the salt-key command in raw python '
+            help=('Print the output from the \'{0}\' command in raw python '
                   'form, this is suitable for re-reading the output into an '
-                  'executing python script with eval.')
+                  'executing python script with eval.'.format(
+                      self.get_prog_name()
+                  ))
         )
         group.add_option(
             '--yaml-out',
             default=False,
             action='store_true',
-            help='Print the output from the salt-key command in yaml.'
+            help='Print the output from the \'{0}\' command in yaml.'.format(
+                self.get_prog_name()
+            )
         )
         group.add_option(
             '--json-out',
             default=False,
             action='store_true',
-            help='Print the output from the salt-key command in json.'
+            help='Print the output from the \'{0}\' command in json.'.format(
+                self.get_prog_name()
+            )
         )
         if self._include_text_out_:
             group.add_option(
                 '--text-out',
                 default=False,
                 action='store_true',
-                help=('Print the output from the salt command in the same '
-                      'form the shell would.')
+                help=('Print the output from the \'{0}\' command in the same '
+                      'form the shell would.'.format(self.get_prog_name()))
             )
         group.add_option(
             '--no-color',
@@ -712,14 +730,6 @@ class SaltCMDOptionParser(OptionParser, ConfigDirMixIn, TimeoutMixIn,
                   'systems, databases or applications.')
         )
         self.add_option(
-            '-Q', '--query',
-            action='store_true',
-            help=('This option is deprecated and will be removed in a future '
-                  'release, please use salt-run jobs instead.\n'
-                  'Execute a salt command query, this can be used to find '
-                  'the results of a previous function call: -Q test.echo')
-        )
-        self.add_option(
             '-d', '--doc', '--documentation',
             dest='doc',
             default=False,
@@ -729,41 +739,36 @@ class SaltCMDOptionParser(OptionParser, ConfigDirMixIn, TimeoutMixIn,
         )
 
     def _mixin_after_parsed(self):
-        if self.options.query:
-            if len(self.args) < 1:
-                self.error(
-                    'Please pass in a command to query the old salt calls for.'
-                )
-            self.config['cmd'] = self.args[0]
-        else:
-            # Catch invalid invocations of salt such as: salt run
-            if len(self.args) <= 1 and not self.options.doc:
-                self.print_help()
-                self.exit(1)
+        # Catch invalid invocations of salt such as: salt run
+        if len(self.args) <= 1 and not self.options.doc:
+            self.print_help()
+            self.exit(1)
 
-            if self.options.doc:
-                # Include the target
+        if self.options.doc:
+            # Include the target
+            if not self.args or (self.args and self.args[0] != '*'):
                 self.args.insert(0, '*')
+            if len(self.args) < 2 or self.args[1] != 'sys.doc':
                 # Include the function
                 self.args.insert(1, 'sys.doc')
 
-            if self.options.list:
-                self.config['tgt'] = self.args[0].split(',')
-            else:
-                self.config['tgt'] = self.args[0]
+        if self.options.list:
+            self.config['tgt'] = self.args[0].split(',')
+        else:
+            self.config['tgt'] = self.args[0]
 
-            # Detect compound command and set up the data for it
-            if ',' in self.args[1]:
-                self.config['fun'] = self.args[1].split(',')
-                self.config['arg'] = []
-                for comp in ' '.join(self.args[2:]).split(','):
-                    self.config['arg'].append(comp.split())
-                if len(self.config['fun']) != len(self.config['arg']):
-                    self.exit(42, 'Cannot execute compound command without '
-                                  'defining all arguments.')
-            else:
-                self.config['fun'] = self.args[1]
-                self.config['arg'] = self.args[2:]
+        # Detect compound command and set up the data for it
+        if ',' in self.args[1]:
+            self.config['fun'] = self.args[1].split(',')
+            self.config['arg'] = []
+            for comp in ' '.join(self.args[2:]).split(','):
+                self.config['arg'].append(comp.split())
+            if len(self.config['fun']) != len(self.config['arg']):
+                self.exit(42, 'Cannot execute compound command without '
+                              'defining all arguments.')
+        else:
+            self.config['fun'] = self.args[1]
+            self.config['arg'] = self.args[2:]
 
     def setup_config(self):
         return config.client_config(self.get_config_file_path('master'))
@@ -883,9 +888,16 @@ class SaltKeyOptionParser(OptionParser, ConfigDirMixIn, LogLevelMixIn,
         )
 
         actions_group.add_option(
-            '-F', '--finger',
+            '-f', '--finger',
             default='',
             help='Print the named key\'s fingerprint'
+        )
+
+        actions_group.add_option(
+            '-F', '--finger-all',
+            default=False,
+            action='store_true',
+            help='Print all key\'s fingerprints'
         )
         self.add_option_group(actions_group)
 
@@ -1009,6 +1021,19 @@ class SaltCallOptionParser(OptionParser, ConfigDirMixIn, LogLevelMixIn,
             action='store_true',
             help=('Return the documentation for the specified module or for '
                   'all modules if none are specified.')
+        )
+        self.add_option(
+            '--return',
+            default='',
+            metavar='RETURNER',
+            help=('Set salt-call to pass the return data to one or many '
+                  'returner interfaces.')
+        )
+        self.add_option(
+            '--local',
+            default=False,
+            action='store_true',
+            help='Run salt-call locally, as if there was no master running.'
         )
 
     def _mixin_after_parsed(self):

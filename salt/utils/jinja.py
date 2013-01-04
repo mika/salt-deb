@@ -1,18 +1,18 @@
 '''
 Jinja loading utils to enable a more powerful backend for jinja templates
 '''
+
 # Import python libs
 from os import path
 import logging
 
-# Import third-party libs
+# Import third party libs
 from jinja2 import BaseLoader
 from jinja2.exceptions import TemplateNotFound
 
-# Import Salt libs
+# Import salt libs
 import salt
 import salt.fileclient
-
 
 log = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ class SaltCacheLoader(BaseLoader):
             raise TemplateNotFound(template)
         self.check_cache(template)
         filepath = path.join(self.searchpath, template)
-        with open(filepath, 'rb') as f:
+        with salt.utils.fopen(filepath, 'rb') as f:
             try:
                 contents = f.read().decode(self.encoding)
             except IOError:

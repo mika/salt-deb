@@ -3,6 +3,8 @@ Setup of Python virtualenv sandboxes.
 =====================================
 
 '''
+
+# Import python libs
 import logging
 import os
 
@@ -54,15 +56,22 @@ def managed(name,
     venv_exists = os.path.exists(venv_py)
 
     # Bail out early if the specified requirements file can't be found
-    if requirements:
-        reqs_hash = __salt__['cp.hash_file'](requirements, __env__)
-
-        if not reqs_hash:
+    if requirements and requirements.startswith('salt://'):
+        cached_requirements = __salt__['cp.is_cached'](requirements)
+        if not cached_requirements:
+            # It's not cached, let's cache it.
+            cached_requirements = __salt__['cp.cache_file'](requirements)
+        # Check if the master version has changed.
+        if __salt__['cp.hash_file'](requirements) != \
+                __salt__['cp.hash_file'](cached_requirements):
+                    cached_requirements = __salt__['cp.cache_file'](requirements)
+        if not cached_requirements:
             ret.update({
                 'result': False,
                 'comment': "pip requirements file '{0}' not found".format(
-                    requirements)})
-
+                    requirements
+                )
+            })
             return ret
 
     # If it already exists, grab the version for posterity
@@ -74,8 +83,16 @@ def managed(name,
 
     # Create (or clear) the virtualenv
     if __opts__['test']:
+        if venv_exists and clear:
+            ret['result'] = None
+            ret['comment'] = 'Virtualenv {0} is set to be cleared'.format(name)
+            return ret
+        if venv_exists and not clear:
+            #ret['result'] = None
+            ret['comment'] = 'Virtualenv {0} is already created'.format(name)
+            return ret
         ret['result'] = None
-        ret['comment'] = 'Virtualenv {0} is set to be created or cleared'
+        ret['comment'] = 'Virtualenv {0} is set to be created'.format(name)
         return ret
 
     if not venv_exists or (venv_exists and clear):
@@ -91,7 +108,7 @@ def managed(name,
                 prompt=prompt,
                 runas=runas)
 
-        ret['result'] = _ret['retcode']==0
+        ret['result'] = _ret['retcode'] == 0
         ret['changes']['new'] = __salt__['cmd.run_stderr'](
                 '{0} -V'.format(venv_py)).strip('\n')
 
@@ -109,7 +126,11 @@ def managed(name,
         _ret = __salt__['pip.install'](
             requirements=requirements, bin_env=name, runas=runas, cwd=cwd
         )
-        ret['result'] &= _ret['retcode']==0
+        ret['result'] &= _ret['retcode'] == 0
+        if _ret['retcode'] > 0:
+            ret['comment'] = '{0}\n{1}\n{2}'.format(ret['comment'],
+                                                    _ret['stdout'],
+                                                    _ret['stderr'])
 
         after = set(__salt__['pip.freeze'](bin_env=name))
 

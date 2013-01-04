@@ -2,12 +2,14 @@
 All salt configuration loading and defaults should be in this module
 '''
 
-# Import python modules
+# Import python libs
 import glob
 import os
+import re
 import socket
 import logging
 import time
+import urlparse
 
 # import third party libs
 import yaml
@@ -60,7 +62,7 @@ def _append_domain(opts):
 
 
 def _read_conf_file(path):
-    with open(path, 'r') as conf_file:
+    with salt.utils.fopen(path, 'r') as conf_file:
         conf_opts = yaml.safe_load(conf_file.read()) or {}
         # allow using numeric ids: convert int to string
         if 'id' in conf_opts:
@@ -73,6 +75,11 @@ def load_config(opts, path, env_var):
     Attempts to update ``opts`` dict by parsing either the file described by
     ``path`` or the environment variable described by ``env_var`` as YAML.
     '''
+    if path is None:
+        # When the passed path is None, we just want the configuration
+        # defaults, not actually loading the whole configuration.
+        return opts
+
     if not path or not os.path.isfile(path):
         path = os.environ.get(env_var, path)
     # If the configuration file is missing, attempt to copy the template,
@@ -80,8 +87,9 @@ def load_config(opts, path, env_var):
     if not os.path.isfile(path):
         template = '{0}.template'.format(path)
         if os.path.isfile(template):
-            with open(path, 'w') as out:
-                with open(template, 'r') as f:
+            import salt.utils  # TODO: Need to re-import, need to find out why
+            with salt.utils.fopen(path, 'w') as out:
+                with salt.utils.fopen(template, 'r') as f:
                     f.readline()  # skip first line
                     out.write(f.read())
 
@@ -109,6 +117,11 @@ def include_config(include, opts, orig_path, verbose):
     if not include:
         return opts
 
+    if orig_path is None:
+        # When the passed path is None, we just want the configuration
+        # defaults, not actually loading the whole configuration.
+        return opts
+
     if isinstance(include, str):
         include = [include]
 
@@ -116,19 +129,24 @@ def include_config(include, opts, orig_path, verbose):
         if not os.path.isabs(path):
             path = os.path.join(os.path.dirname(orig_path), path)
 
-        # Catch situation where user typos path in config; also warns for
-        # empty include dir (which might be by design)
+        # Catch situation where user typos path in configuration; also warns
+        # for empty include directory (which might be by design)
         if len(glob.glob(path)) == 0:
-            msg = ('Warning parsing configuration file: "include" path/glob '
-                   '"{0}" matches no files').format(path)
-            if verbose: log.warn(msg.format(path))
+            if verbose:
+                log.warn(
+                    'Warning parsing configuration file: "include" path/glob '
+                    '"{0}" matches no files'.format(path)
+                )
 
         for fn_ in glob.glob(path):
             try:
                 opts.update(_read_conf_file(fn_))
             except Exception as e:
-                msg = 'Error parsing configuration file: {0} - {1}'
-                log.warn(msg.format(fn_, e))
+                log.warn(
+                    'Error parsing configuration file: {0} - {1}'.format(
+                        fn_, e
+                    )
+                )
     return opts
 
 
@@ -147,7 +165,7 @@ def prepend_root_dir(opts, path_options):
                     opts[path_option])
 
 
-def minion_config(path):
+def minion_config(path, check_dns=True):
     '''
     Reads in the minion configuration file and sets up special options
     '''
@@ -156,12 +174,12 @@ def minion_config(path):
             'master_finger': '',
             'user': 'root',
             'root_dir': '/',
-            'pki_dir': '/etc/salt/pki',
+            'pki_dir': '/etc/salt/pki/minion',
             'id': socket.getfqdn(),
-            'cachedir': '/var/cache/salt',
+            'cachedir': '/var/cache/salt/minion',
             'cache_jobs': False,
             'conf_file': path,
-            'sock_dir': '/var/run/salt',
+            'sock_dir': '/var/run/salt/minion',
             'backup_mode': '',
             'renderer': 'yaml_jinja',
             'failhard': False,
@@ -214,6 +232,7 @@ def minion_config(path):
             'update_url': False,
             'update_restart_services': [],
             'retry_dns': 30,
+            'recon_max': 5000,
             }
 
     if len(opts['sock_dir']) > len(opts['cachedir']) + 10:
@@ -230,24 +249,36 @@ def minion_config(path):
     if 'append_domain' in opts:
         opts['id'] = _append_domain(opts)
 
-    try:
-        opts['master_ip'] = salt.utils.dns_check(opts['master'], True)
-    except SaltClientError:
-        if opts['retry_dns']:
-            while True:
-                msg = ('Master hostname: {0} not found. '
-                        'Retrying in {1} seconds').format(opts['master'], 
-                                                            opts['retry_dns'])
-                log.warn(msg)
-                print msg
-                time.sleep(opts['retry_dns'])
-                try:
-                    opts['master_ip'] = salt.utils.dns_check(opts['master'], True)
-                    break
-                except SaltClientError:
-                    pass
-        else:
-            opts['master_ip'] = '127.0.0.1'
+    if opts.get('file_client', 'remote') == 'local' and check_dns:
+        check_dns = False
+
+    if check_dns is True:
+        # Because I import salt.log below I need to re-import salt.utils here
+        import salt.utils
+        try:
+            opts['master_ip'] = salt.utils.dns_check(opts['master'], True)
+        except SaltClientError:
+            if opts['retry_dns']:
+                while True:
+                    import salt.log
+                    msg = ('Master hostname: {0} not found. Retrying in {1} '
+                           'seconds').format(opts['master'], opts['retry_dns'])
+                    if salt.log.is_console_configured():
+                        log.warn(msg)
+                    else:
+                        print('WARNING: {0}'.format(msg))
+                    time.sleep(opts['retry_dns'])
+                    try:
+                        opts['master_ip'] = salt.utils.dns_check(
+                            opts['master'], True
+                        )
+                        break
+                    except SaltClientError:
+                        pass
+            else:
+                opts['master_ip'] = '127.0.0.1'
+    else:
+        opts['master_ip'] = '127.0.0.1'
 
     opts['master_uri'] = 'tcp://{ip}:{port}'.format(ip=opts['master_ip'],
                                                     port=opts['master_port'])
@@ -258,13 +289,21 @@ def minion_config(path):
 
     # set up the extension_modules location from the cachedir
     opts['extension_modules'] = (
-            opts.get('extension_modules') or 
+            opts.get('extension_modules') or
             os.path.join(opts['cachedir'], 'extmods')
             )
 
     # Prepend root_dir to other paths
-    prepend_root_dir(opts, ['pki_dir', 'cachedir', 'log_file', 'sock_dir',
-                            'key_logfile', 'extension_modules'])
+    prepend_root_dirs = [
+        'pki_dir', 'cachedir', 'sock_dir', 'extension_modules'
+    ]
+
+    # These can be set to syslog, so, not actual paths on the system
+    for config_key in ('log_file', 'key_logfile'):
+        if urlparse.urlparse(opts.get(config_key, '')).scheme == '':
+            prepend_root_dirs.append(config_key)
+
+    prepend_root_dir(opts, prepend_root_dirs)
     return opts
 
 
@@ -274,15 +313,16 @@ def master_config(path):
     '''
     opts = {'interface': '0.0.0.0',
             'publish_port': '4505',
+            'auth_mode': 1,
             'user': 'root',
             'worker_threads': 5,
-            'sock_dir': '/var/run/salt',
+            'sock_dir': '/var/run/salt/master',
             'ret_port': '4506',
             'timeout': 5,
             'keep_jobs': 24,
             'root_dir': '/',
-            'pki_dir': '/etc/salt/pki',
-            'cachedir': '/var/cache/salt',
+            'pki_dir': '/etc/salt/pki/master',
+            'cachedir': '/var/cache/salt/master',
             'file_roots': {
                 'base': ['/srv/salt'],
                 },
@@ -293,8 +333,8 @@ def master_config(path):
                 'base': ['/srv/pillar'],
                 },
             'ext_pillar': [],
-            # TODO - Set this to 2 by default in 0.10.5
-            'pillar_version': 1,
+            # NOTE: pillar version changed to 2 by default in 0.10.6
+            'pillar_version': 2,
             'pillar_opts': True,
             'syndic_master': '',
             'runner_dirs': [],
@@ -302,10 +342,11 @@ def master_config(path):
             'external_auth': {},
             'token_expire': 720,
             'file_buffer_size': 1048576,
+            'file_ignore_regex': None,
+            'file_ignore_glob': None,
             'max_open_files': 100000,
             'hash_type': 'md5',
             'conf_file': path,
-            'pub_refresh': False,
             'open_mode': False,
             'auto_accept': False,
             'renderer': 'yaml_jinja',
@@ -316,6 +357,7 @@ def master_config(path):
             'order_masters': False,
             'job_cache': True,
             'ext_job_cache': '',
+            'master_ext_job_cache': '',
             'minion_data_cache': True,
             'log_file': '/var/log/salt/master',
             'log_level': None,
@@ -328,9 +370,12 @@ def master_config(path):
             'cluster_masters': [],
             'cluster_mode': 'paranoid',
             'range_server': 'range:80',
+            'reactors': [],
             'serial': 'msgpack',
             'state_verbose': True,
             'state_output': 'full',
+            'search': '',
+            'search_index_interval': 3600,
             'nodegroups': {},
             'cython_enable': False,
             'key_logfile': '/var/log/salt/key',
@@ -353,7 +398,7 @@ def master_config(path):
     opts['aes'] = salt.crypt.Crypticle.generate_key_string()
 
     opts['extension_modules'] = (
-            opts.get('extension_modules') or 
+            opts.get('extension_modules') or
             os.path.join(opts['cachedir'], 'extmods')
             )
     opts['token_dir'] = os.path.join(opts['cachedir'], 'tokens')
@@ -367,6 +412,29 @@ def master_config(path):
     opts['open_mode'] = opts['open_mode'] is True
     opts['auto_accept'] = opts['auto_accept'] is True
     opts['file_roots'] = _validate_file_roots(opts['file_roots'])
+
+    if opts['file_ignore_regex']:
+        # If file_ignore_regex was given, make sure it's wrapped in a list.
+        # Only keep valid regex entries for improved performance later on.
+        if isinstance(opts['file_ignore_regex'], str):
+            ignore_regex = [ opts['file_ignore_regex'] ]
+        elif isinstance(opts['file_ignore_regex'], list):
+            ignore_regex = opts['file_ignore_regex']
+
+        opts['file_ignore_regex'] = []
+        for r in ignore_regex:
+            try:
+                # Can't store compiled regex itself in opts (breaks serialization)
+                re.compile(r)
+                opts['file_ignore_regex'].append(r)
+            except:
+                log.warning('Unable to parse file_ignore_regex. Skipping: {0}'.format(r))
+
+    if opts['file_ignore_glob']:
+        # If file_ignore_glob was given, make sure it's wrapped in a list.
+        if isinstance(opts['file_ignore_glob'], str):
+            opts['file_ignore_glob'] = [ opts['file_ignore_glob'] ]
+
     return opts
 
 
@@ -383,6 +451,6 @@ def client_config(path):
     if 'token_file' in opts:
         opts['token_file'] = os.path.expanduser(opts['token_file'])
     if os.path.isfile(opts['token_file']):
-        with open(opts['token_file']) as fp_:
+        with salt.utils.fopen(opts['token_file']) as fp_:
             opts['token'] = fp_.read().strip()
     return opts

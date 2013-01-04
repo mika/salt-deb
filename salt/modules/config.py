@@ -2,6 +2,7 @@
 Return config information
 '''
 
+# Import python libs
 import re
 
 # Set up the default values for all systems
@@ -40,7 +41,6 @@ defaults = {'mongo.db': 'salt',
             }
 
 
-
 def backup_mode(backup=''):
     '''
     Return the backup mode
@@ -76,7 +76,7 @@ def valid_fileproto(uri):
 
 def option(value, default=''):
     '''
-    Pass in a generic option and recieve the value that will be assigned
+    Pass in a generic option and receive the value that will be assigned
     '''
     if value in __opts__:
         return __opts__[value]
@@ -91,7 +91,7 @@ def option(value, default=''):
 
 def dot_vals(value):
     '''
-    Pass in a configuration value that should be preceeded by the module name
+    Pass in a configuration value that should be preceded by the module name
     and a dot, this will return a list of all read key/value pairs
     '''
     ret = {}

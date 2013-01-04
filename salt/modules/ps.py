@@ -2,17 +2,20 @@
 A salt interface to psutil, a system and process library.
 See http://code.google.com/p/psutil.
 
-Required python modules: psutil
+:depends:   - psutil Python module
 '''
 
+# Import python libs
 import sys
 import time
 
+# Import third party libs
 try:
     import psutil
     has_psutil = True
 except ImportError:
     has_psutil = False
+
 
 def __virtual__():
     if not has_psutil:

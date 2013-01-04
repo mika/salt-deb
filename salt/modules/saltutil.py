@@ -1,9 +1,11 @@
 '''
-The Saltutil module is used to manage the state of the salt minion itself. It is
-used to manage minion modules as well as automate updates to the salt minion
+The Saltutil module is used to manage the state of the salt minion itself. It
+is used to manage minion modules as well as automate updates to the salt minion
+
+:depends:   - esky Python module for update functionality
 '''
 
-# Import Python libs
+# Import python libs
 import os
 import hashlib
 import shutil
@@ -12,12 +14,12 @@ import logging
 import fnmatch
 import sys
 
-# Import Salt libs
+# Import salt libs
 import salt.payload
 import salt.state
 from salt._compat import string_types
 
-# Import esky for update functionality
+# Import third party libs
 try:
     import esky
     has_esky = True
@@ -53,7 +55,7 @@ def _sync(form, env=None):
         cache = []
         log.info('Loading cache from {0}, for {1})'.format(source, sub_env))
         cache.extend(__salt__['cp.cache_dir'](source, sub_env))
-        local_cache_dir=os.path.join(
+        local_cache_dir = os.path.join(
                 __opts__['cachedir'],
                 'files',
                 sub_env,
@@ -65,7 +67,7 @@ def _sync(form, env=None):
                 for fn_root in __opts__['file_roots'].get(sub_env, []):
                     if fn_.startswith(fn_root):
                         relpath = os.path.relpath(fn_, fn_root)
-                        relpath = relpath[relpath.index('/') +1:]
+                        relpath = relpath[relpath.index('/') + 1:]
                         relname = os.path.splitext(relpath)[0].replace(
                                 os.sep,
                                 '.')
@@ -79,8 +81,12 @@ def _sync(form, env=None):
             log.info('Copying \'{0}\' to \'{1}\''.format(fn_, dest))
             if os.path.isfile(dest):
                 # The file is present, if the sum differs replace it
-                srch = hashlib.md5(open(fn_, 'r').read()).hexdigest()
-                dsth = hashlib.md5(open(dest, 'r').read()).hexdigest()
+                srch = hashlib.md5(
+                    salt.utils.fopen(fn_, 'r').read()
+                ).hexdigest()
+                dsth = hashlib.md5(
+                    salt.utils.fopen(dest, 'r').read()
+                ).hexdigest()
                 if srch != dsth:
                     # The downloaded file differes, replace!
                     shutil.copyfile(fn_, dest)
@@ -111,7 +117,7 @@ def _sync(form, env=None):
     #dest mod_dir is touched? trigger reload if requested
     if touched:
         mod_file = os.path.join(__opts__['cachedir'], 'module_refresh')
-        with open(mod_file, 'a+') as f:
+        with salt.utils.fopen(mod_file, 'a+') as f:
             f.write('')
     return ret
 
@@ -120,8 +126,8 @@ def _listdir_recursively(rootdir):
     fileList = []
     for root, subFolders, files in os.walk(rootdir):
         for file in files:
-            relpath=os.path.relpath(root,rootdir).strip('.')
-            fileList.append(os.path.join(relpath,file))
+            relpath = os.path.relpath(root, rootdir).strip('.')
+            fileList.append(os.path.join(relpath, file))
     return fileList
 
 
@@ -273,7 +279,7 @@ def refresh_pillar():
     '''
     mod_file = os.path.join(__opts__['cachedir'], 'module_refresh')
     try:
-        with open(mod_file, 'a+') as f:
+        with salt.utils.fopen(mod_file, 'a+') as f:
             f.write('pillar')
         return True
     except IOError:
@@ -314,7 +320,7 @@ def running():
         return []
     for fn_ in os.listdir(proc_dir):
         path = os.path.join(proc_dir, fn_)
-        with open(path, 'rb') as fp_:
+        with salt.utils.fopen(path, 'rb') as fp_:
             data = serial.loads(fp_.read())
         if not isinstance(data, dict):
             # Invalid serial object

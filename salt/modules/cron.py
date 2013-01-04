@@ -11,6 +11,7 @@ import salt.utils
 
 TAG = '# Lines below here are managed by Salt, do not edit\n'
 
+
 def _render_tab(lst):
     '''
     Takes a tab list structure and renders it to a list for applying it to
@@ -22,38 +23,24 @@ def _render_tab(lst):
     if len(ret):
         if not ret[-1] == TAG:
             ret.append(TAG)
+    else:
+        ret.append(TAG)
     for env in lst['env']:
         if (env['value'] is None) or (env['value'] == ""):
-            ret.append(
-                '{0}=""\n'.format(
-                    env['name']
-                    )
-                )
+            ret.append('{0}=""\n'.format(env['name']))
         else:
-            ret.append(
-                '{0}={1}\n'.format(
-                    env['name'],
-                    env['value']
-                    )
-                )
+            ret.append('{0}={1}\n'.format(env['name'], env['value']))
     for cron in lst['crons']:
-        ret.append(
-            '{0} {1} {2} {3} {4} {5}\n'.format(
-                cron['min'],
-                cron['hour'],
-                cron['daymonth'],
-                cron['month'],
-                cron['dayweek'],
-                cron['cmd']
-                )
-            )
+        ret.append('{0} {1} {2} {3} {4} {5}\n'.format(cron['min'],
+                                                      cron['hour'],
+                                                      cron['daymonth'],
+                                                      cron['month'],
+                                                      cron['dayweek'],
+                                                      cron['cmd']
+                                                      )
+                   )
     for spec in lst['special']:
-        ret.append(
-            '{0} {1}\n'.format(
-                spec['spec'],
-                spec['cmd']
-                )
-            )
+        ret.append('{0} {1}\n'.format(spec['spec'], spec['cmd']))
     return ret
 
 
@@ -80,7 +67,7 @@ def _write_cron_lines(user, lines):
     Takes a list of lines to be committed to a user's crontab and writes it
     '''
     path = salt.utils.mkstemp()
-    with open(path, 'w+') as fp_:
+    with salt.utils.fopen(path, 'w+') as fp_:
         fp_.writelines(lines)
     if __grains__['os'] == 'Solaris' and user != "root":
         __salt__['cmd.run']('chown {0} {1}'.format(user, path))
@@ -101,7 +88,7 @@ def raw_cron(user):
         cmd = 'crontab -l {0}'.format(user)
     else:
         cmd = 'crontab -l -u {0}'.format(user)
-    return __salt__['cmd.run_stdout'](cmd)
+    return __salt__['cmd.run_stdout'](cmd, rstrip=False)
 
 
 def list_tab(user):
@@ -232,12 +219,6 @@ def rm_job(user, minute, hour, dom, month, dow, cmd):
 
         salt '*' cron.rm_job root \* \* \* \* 1 /usr/local/weekly
     '''
-    # Scrub the types
-    minute = str(minute)
-    hour = str(hour)
-    dom = str(dom)
-    month = str(month)
-    dow = str(dow)
     lst = list_tab(user)
     ret = 'absent'
     rm_ = None

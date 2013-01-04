@@ -2,18 +2,20 @@
 Control the state system on the minion
 '''
 
-# Import Python libs
+# Import python libs
 import os
 import copy
 import logging
+import json
 
-# Import Salt libs
+# Import salt libs
+import salt.utils
 import salt.state
 import salt.payload
 from salt.utils.yaml import load as yaml_load
 from salt.utils.yaml import CustomLoader as YamlCustomLoader
-import json
 from salt._compat import string_types
+
 
 __outputter__ = {
     'sls': 'highstate',
@@ -100,7 +102,7 @@ def template(tem):
 
 def template_str(tem):
     '''
-    Execute the information stored in a template file on the minion
+    Execute the information stored in a string from an sls template
 
     CLI Example::
 
@@ -138,7 +140,7 @@ def highstate(test=None, **kwargs):
     # Not 100% if this should be fatal or not,
     # but I'm guessing it likely should not be.
     try:
-        with open(cache_file, 'w+') as fp_:
+        with salt.utils.fopen(cache_file, 'w+') as fp_:
             serial.dump(ret, fp_)
     except (IOError, OSError):
         msg = 'Unable to write to "state.highstate" cache file {0}'
@@ -179,7 +181,7 @@ def sls(mods, env='base', test=None, **kwargs):
     serial = salt.payload.Serial(__opts__)
     cache_file = os.path.join(__opts__['cachedir'], 'sls.p')
     try:
-        with open(cache_file, 'w+') as fp_:
+        with salt.utils.fopen(cache_file, 'w+') as fp_:
             serial.dump(ret, fp_)
     except (IOError, OSError):
         msg = 'Unable to write to "state.sls" cache file {0}'
@@ -248,6 +250,14 @@ def show_sls(mods, env='base', test=None, **kwargs):
     if errors:
         return errors
     return high
+
+
+def show_top():
+    '''
+    Return the top data that the minion will use for a highstate
+    '''
+    st_ = salt.state.HighState(__opts__)
+    return st_.get_top()
 
 
 def show_masterstate():

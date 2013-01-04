@@ -1,25 +1,25 @@
 '''
 Module to provide Postgres compatibility to salt.
 
-In order to connect to Postgres, certain configuration is required
-in /etc/salt/minion on the relevant minions. Some sample configs
-might look like::
+:configuration: In order to connect to Postgres, certain configuration is
+    required in /etc/salt/minion on the relevant minions. Some sample configs
+    might look like::
 
-    postgres.host: 'localhost'
-    postgres.port: '5432'
-    postgres.user: 'postgres'
-    postgres.pass: ''
-    postgres.db: 'postgres'
+        postgres.host: 'localhost'
+        postgres.port: '5432'
+        postgres.user: 'postgres'
+        postgres.pass: ''
+        postgres.db: 'postgres'
 
-This data can also be passed into pillar. Options passed into opts will
-overwrite options passed into pillar
+    This data can also be passed into pillar. Options passed into opts will
+    overwrite options passed into pillar
 '''
 
-# Import Python libs
+# Import python libs
 import pipes
 import logging
 
-# Import Salt libs
+# Import salt libs
 from salt.utils import check_or_die
 from salt.exceptions import CommandNotFoundError
 
@@ -245,7 +245,7 @@ def user_list(user=None, host=None, port=None, runas=None):
     ret = []
     query = (
         '''SELECT rolname, rolsuper, rolinherit, rolcreaterole, rolcreatedb,
-        rolcatupdate, rolcanlogin, rolconnlimit, rolvaliduntil, rolconfig, oid
+        rolcatupdate, rolcanlogin, rolreplication, rolconnlimit, rolvaliduntil, rolconfig, oid
         FROM pg_roles'''
     )
     cmd = _psql_cmd('-c', query,
@@ -297,6 +297,7 @@ def user_create(username,
                 createuser=False,
                 encrypted=False,
                 superuser=False,
+                replication=False,
                 password=None,
                 runas=None):
     '''
@@ -325,6 +326,8 @@ def user_create(username,
         sub_cmd = "{0} CREATEUSER".format(sub_cmd, )
     if superuser:
         sub_cmd = "{0} SUPERUSER".format(sub_cmd, )
+    if replication:
+        sub_cmd = "{0} REPLICATION".format(sub_cmd, )
 
     if sub_cmd.endswith("WITH"):
         sub_cmd = sub_cmd.replace(" WITH", "")
@@ -339,6 +342,7 @@ def user_update(username,
                 createdb=False,
                 createuser=False,
                 encrypted=False,
+                replication=False,
                 password=None,
                 runas=None):
     '''
@@ -364,6 +368,8 @@ def user_update(username,
         sub_cmd = "{0} CREATEUSER".format(sub_cmd, )
     if encrypted:
         sub_cmd = "{0} ENCRYPTED".format(sub_cmd, )
+    if encrypted:
+        sub_cmd = "{0} REPLICATION".format(sub_cmd, )
 
     if sub_cmd.endswith("WITH"):
         sub_cmd = sub_cmd.replace(" WITH", "")

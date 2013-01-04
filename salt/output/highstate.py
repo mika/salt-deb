@@ -10,7 +10,7 @@ set in the minion config to change the output of the ``salt-call`` command.
 state_verbose:
     By default `state_verbose` is set to `True`, setting this to `False` will
     instruct the highstate outputter to omit displaying anything in green, this
-    means that nothing with a result of True and no chnages will not be printed
+    means that nothing with a result of True and no changes will not be printed
 state_output:
     The highstate outputter has two output modes, `full` and `terse`. The
     default is set to full, which will display many lines of detailed
@@ -18,8 +18,10 @@ state_output:
     set to `terse` then the output is greatly simplified and shown in only one
     line
 '''
-# Import salt libs
+
+# Import python libs
 import pprint
+
 # Import salt libs
 import salt.utils
 from salt._compat import string_types

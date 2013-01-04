@@ -2,6 +2,7 @@
 A module to wrap archive calls
 '''
 
+# Import salt libs
 from salt.utils import which as _which
 # TODO: Add wrapping to each function to check for existance of the binary
 # TODO: Check that the passed arguments are correct
@@ -15,17 +16,17 @@ def __virtual__():
     return 'archive'
 
 
-def tar(options, tarfile, *sources):
+def tar(options, tarfile, cwd=None, *sources):
     '''
     Uses the tar command to pack, unpack, etc tar files
 
     CLI Example::
 
-        salt '*' archive.tar cjvf /tmp/tarfile.tar.bz2 /tmp/file1 /tmp/file2
+        salt '*' archive.tar cjvf /tmp/tarfile.tar.bz2 /tmp/file_1 /tmp/file_2
     '''
     sourcefiles = ' '.join(sources)
     cmd = 'tar -{0} {1} {2}'.format(options, tarfile, sourcefiles)
-    out = __salt__['cmd.run'](cmd).splitlines()
+    out = __salt__['cmd.run'](cmd, cwd).splitlines()
     return out
 
 
@@ -75,7 +76,7 @@ def unzip(zipfile, dest, *xfiles):
 
     CLI Example::
 
-        salt '*' archive.unzip /tmp/zipfile.zip /home/strongbad/ file1 file2
+        salt '*' archive.unzip /tmp/zipfile.zip /home/strongbad/ file_1 file_2
     '''
     xfileslist = ' '.join(xfiles)
     cmd = 'unzip {0} -d {1}'.format(zipfile, dest)
@@ -108,7 +109,7 @@ def unrar(rarfile, dest, *xfiles):
 
     CLI Example::
 
-        salt '*' archive.unrar /tmp/rarfile.rar /home/strongbad/ file1 file2
+        salt '*' archive.unrar /tmp/rarfile.rar /home/strongbad/ file_1 file_2
     '''
     xfileslist = ' '.join(xfiles)
     cmd = 'rar x -idp {0}'.format(rarfile, dest)

@@ -15,6 +15,7 @@ exists in "~/.ssh/known_hosts" file.
         - rev: develop
         - target: /tmp/salt
 '''
+
 import logging
 import os
 import shutil
@@ -66,21 +67,39 @@ def latest(name,
         try:
             current_rev = __salt__['git.revision'](target, user=runas)
 
-            if __opts__['test']:
-                return _neutral_test(
+            #only do something, if the specified rev differs from the
+            #current_rev
+            if rev == current_rev:
+                new_rev = current_rev
+            else:
+
+                if __opts__['test']:
+                    return _neutral_test(
                         ret,
                         ('Repository {0} update is probably required (current '
-                        'revision is {1})').format(target, current_rev))
+                         'revision is {1})').format(target, current_rev))
 
-            __salt__['git.pull'](target, user=runas)
+                # check if rev is already present in repo and git-fetch otherwise
+                if rev:
 
-            if rev:
-                __salt__['git.checkout'](target, rev, user=runas)
+                    cmd = "git rev-parse "+rev
+                    retcode = __salt__['cmd.retcode'](cmd, cwd=target, runas=runas)
+                    if 0 != retcode:
+                        __salt__['git.fetch'](target, user=runas)
 
-            if submodules:
-                __salt__['git.submodule'](target, user=runas, opts='--recursive')
+                    __salt__['git.checkout'](target, rev, user=runas)
 
-            new_rev = __salt__['git.revision'](cwd=target, user=runas)
+                # check if we are on a branch to merge changes
+                cmd = "git symbolic-ref -q HEAD > /dev/null"
+                retcode = __salt__['cmd.retcode'](cmd, cwd=target, runas=runas)
+                if 0 == retcode:
+                    __salt__['git.pull'](target, user=runas)
+
+                if submodules:
+                    __salt__['git.submodule'](target, user=runas,
+                                              opts='--recursive')
+
+                new_rev = __salt__['git.revision'](cwd=target, user=runas)
 
         except Exception as exc:
             return _fail(

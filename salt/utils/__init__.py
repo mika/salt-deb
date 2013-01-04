@@ -3,7 +3,7 @@ Some of the utils used by salt
 '''
 from __future__ import absolute_import
 
-# Import Python libs
+# Import python libs
 import os
 import re
 import imp
@@ -22,7 +22,14 @@ import time
 import platform
 from calendar import month_abbr as months
 
-# Import Salt libs
+try:
+    import fcntl
+    has_fcntl = True
+except ImportError:
+    # fcntl is not available on windows
+    has_fcntl = False
+
+# Import salt libs
 import salt.minion
 import salt.payload
 from salt.exceptions import SaltClientError, CommandNotFoundError
@@ -195,7 +202,7 @@ def daemonize_if(opts, **kwargs):
     daemonize()
     sdata = {'pid': os.getpid()}
     sdata.update(data)
-    with open(fn_, 'w+') as f:
+    with salt.utils.fopen(fn_, 'w+') as f:
         f.write(serial.dumps(sdata))
 
 
@@ -226,7 +233,6 @@ def which(exe=None):
     Python clone of POSIX's /usr/bin/which
     '''
     if exe:
-        (path, name) = os.path.split(exe)
         if os.access(exe, os.X_OK):
             return exe
 
@@ -385,7 +391,7 @@ def prep_jid(cachedir, sum_type, user='root'):
     jid_dir_ = jid_dir(jid, cachedir, sum_type)
     if not os.path.isdir(jid_dir_):
         os.makedirs(jid_dir_)
-        with open(os.path.join(jid_dir_, 'jid'), 'w+') as fn_:
+        with salt.utils.fopen(os.path.join(jid_dir_, 'jid'), 'w+') as fn_:
             fn_.write(jid)
     else:
         return prep_jid(cachedir, sum_type)
@@ -505,7 +511,7 @@ def pem_finger(path, sum_type='md5'):
     '''
     if not os.path.isfile(path):
         return ''
-    with open(path, 'rb') as fp_:
+    with salt.utils.fopen(path, 'rb') as fp_:
         key = ''.join(fp_.readlines()[1:-1])
     pre = getattr(hashlib, sum_type)(key).hexdigest()
     finger = ''
@@ -723,6 +729,29 @@ def memoize(func):
     return _m
 
 
+def fopen(*args, **kwargs):
+    '''
+    Wrapper around open() built-in to set CLOEXEC on the fd.
+
+    This flag specifies that the file descriptor should be closed when an exec
+    function is invoked;
+    When a file descriptor is allocated (as with open or dup ), this bit is
+    initially cleared on the new file descriptor, meaning that descriptor will
+    survive into the new program after exec.
+    '''
+    fhandle = open(*args, **kwargs)
+    if has_fcntl:
+        # modify the file descriptor on systems with fcntl
+        # unix and unix-like systems only
+        try:
+            FD_CLOEXEC = fcntl.FD_CLOEXEC
+        except AttributeError:
+            FD_CLOEXEC = 1
+        old_flags = fcntl.fcntl(fhandle.fileno(), fcntl.F_GETFD)
+        fcntl.fcntl(fhandle.fileno(), fcntl.F_SETFD, old_flags | FD_CLOEXEC)
+    return fhandle
+
+
 def mkstemp(*args, **kwargs):
     '''
     Helper function which does exactly what `tempfile.mkstemp()` does but
@@ -737,3 +766,17 @@ def mkstemp(*args, **kwargs):
     os.close(fd_)
     del(fd_)
     return fpath
+
+
+def clean_kwargs(**kwargs):
+    '''
+    Clean out the __pub* keys from the kwargs dict passed into the execution 
+    module functions. The __pub* keys are useful for tracking what was used to
+    invoke the function call, but they may not be desierable to have if
+    passing the kwargs forward wholesale.
+    '''
+    ret = {}
+    for key, val in kwargs.items():
+        if not key.startswith('__pub'):
+            ret[key] = val
+    return ret

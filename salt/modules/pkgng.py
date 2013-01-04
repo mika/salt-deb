@@ -2,7 +2,12 @@
 Support for pkgng
 '''
 
-import os 
+# Import python libs
+import os
+
+# Import salt libs
+import salt.utils
+
 
 def __virtual__():
     '''
@@ -28,7 +33,7 @@ def parse_config(file_name='/usr/local/etc/pkg.conf'):
     if not os.path.isfile(file_name):
         return 'Unable to find {0} on file system'.format(file_name)
 
-    with open(file_name) as f:
+    with salt.utils.fopen(file_name) as f:
         for line in f:
             if line.startswith("#") or line.startswith("\n"):
                 pass
@@ -43,13 +48,26 @@ def parse_config(file_name='/usr/local/etc/pkg.conf'):
 def version():
     '''
     Displays the current version of pkg
-    
+
     CLI Example::
         salt '*' pkgng.version
     '''
 
     cmd = 'pkg -v'
     return __salt__['cmd.run'](cmd)
+
+
+def available_version(name):
+    '''
+    The available version of the package in the repository
+   
+    CLI Example::
+        salt '*' pkgng.available_version <package name>
+    '''
+
+    cmd = 'pkg info {0}'.format(name)
+    out = __salt__['cmd.run'](cmd).split()
+    return out[0]
 
 
 def update_package_site(new_url):
@@ -62,8 +80,9 @@ def update_package_site(new_url):
         salt '*' pkgng.update_package_site http://127.0.0.1/
     '''
     config_file = parse_config()['config_file']
-    __salt__['file.sed'](config_file,'PACKAGESITE.*', \
-        'PACKAGESITE\t : {0}'.format(new_url))
+    __salt__['file.sed'](
+        config_file, 'PACKAGESITE.*', 'PACKAGESITE\t : {0}'.format(new_url)
+    )
 
     # add change return later
     return True
@@ -79,7 +98,7 @@ def stats():
 
     cmd = 'pkg stats'
     res = __salt__['cmd.run'](cmd)
-    res = [ x.strip("\t") for x in res.split("\n") ]
+    res = [x.strip("\t") for x in res.split("\n")]
     return res
 
 
@@ -122,7 +141,7 @@ def add(pkg_path):
 def audit():
     '''
     Audits installed packages against known vulnerabilities
-    
+
     CLI Example::
         salt '*' pkgng.audit
     '''
@@ -134,7 +153,7 @@ def audit():
 def install(pkg_name):
     '''
     Install package from repositories
-    
+
     CLI Example::
         salt '*' pkgng.install bash
     '''
@@ -146,7 +165,7 @@ def install(pkg_name):
 def delete(pkg_name):
     '''
     Delete a package from the database and system
-    
+
     CLI Example::
         salt '*' pkgng.delete bash
     '''
@@ -194,7 +213,7 @@ def update():
 def upgrade():
     '''
     Upgrade all packages
-    
+
     CLI Example::
         salt '*' pkgng.upgrade
     '''

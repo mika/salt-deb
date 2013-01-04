@@ -1,9 +1,11 @@
 '''
 The service module for FreeBSD
 '''
-# Import Python libs
+
+# Import python libs
 import os
-# Import Salt libs
+
+# Import salt libs
 import salt.utils
 from salt.exceptions import CommandNotFoundError
 
@@ -60,7 +62,7 @@ def _switch(name, on, config='/etc/rc.conf', **kwargs):
         val = "NO"
 
     if os.path.exists(config):
-        with open(config, 'r') as f:
+        with salt.utils.fopen(config, 'r') as f:
             for line in f:
                 if not line.startswith('{0}_enable='.format(name)):
                     nlines.append(line)
@@ -70,7 +72,7 @@ def _switch(name, on, config='/etc/rc.conf', **kwargs):
                 edited = True
     if not edited:
         nlines.append("{0}_enable=\"{1}\"\n".format(name, val))
-    with open(config, 'w') as f: f.writelines(nlines)
+    with salt.utils.fopen(config, 'w') as f: f.writelines(nlines)
     return True
 
 

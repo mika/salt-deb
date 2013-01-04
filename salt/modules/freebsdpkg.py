@@ -2,7 +2,9 @@
 Package support for FreeBSD
 '''
 
+# Import python libs
 import os
+import salt.utils
 
 
 def _check_pkgng():
@@ -14,6 +16,11 @@ def _check_pkgng():
     return False
 
 
+@salt.utils.memoize
+def _cmd(cmd):
+    return salt.utils.which(cmd)
+
+
 def search(pkg_name):
     '''
     Use `pkg search` if pkg is being used.
@@ -23,7 +30,9 @@ def search(pkg_name):
         salt '*' pkg.search 'mysql-server'
     '''
     if _check_pkgng():
-        res = __salt__['cmd.run']('pkg search {0}'.format(pkg_name))
+        res = __salt__['cmd.run']('{0} search {1}'.format(_cmd('pkg'),
+                                                          pkg_name
+                                                          ))
         res = [x for x in res.splitlines()]
         return {"Results": res}
 
@@ -55,7 +64,7 @@ def available_version(name):
         salt '*' pkg.available_version <package name>
     '''
     if _check_pkgng():
-        for line in __salt__['cmd.run']('pkg search -f {0}'.format(name).splitlines()):
+        for line in __salt__['cmd.run']('pkg search -f {0}'.format(name)).splitlines():
             if line.startswith('Version'):
                 fn, ver = line.split(':', 1)
                 return ver.strip()
@@ -88,13 +97,13 @@ def refresh_db():
         salt '*' pkg.refresh_db
     '''
     if _check_pkgng():
-        __salt__['cmd.run']('pkg update')
+        __salt__['cmd.run']('{0} update'.format(_cmd('pkg')))
     else:
-        __salt__['cmd.run']('portsnap fetch')
+        __salt__['cmd.run']('{0} fetch'.format(_cmd('portsnap')))
         if not os.path.isdir('/usr/ports'):
-            __salt__['cmd.run']('portsnap extract')
+            __salt__['cmd.run']('{0} extract'.format(_cmd('portsnap')))
         else:
-            __salt__['cmd.run']('portsnap update')
+            __salt__['cmd.run']('{0} update'.format(_cmd('portsnap')))
     return {}
 
 
@@ -109,15 +118,18 @@ def list_pkgs():
         salt '*' pkg.list_pkgs
     '''
     if _check_pkgng():
-        pkg_command = "pkg info"
+        pkg_command = '{0} info'.format(_cmd('pkg'))
     else:
-        pkg_command = "pkg_info"
+        pkg_command = '{0}'.format(_cmd('pkg_info'))
     ret = {}
     for line in __salt__['cmd.run'](pkg_command).splitlines():
         if not line:
             continue
         comps = line.split(' ')[0].split('-')
-        ret['-'.join(comps[0:-1])] = comps[-1]
+        __salt__['pkg_resource.add_pkg'](ret,
+                                        '-'.join(comps[0:-1]),
+                                        comps[-1])
+    __salt__['pkg_resource.sort_pkglist'](ret)
     return ret
 
 
@@ -136,13 +148,13 @@ def install(name, refresh=False, repo='', **kwargs):
     '''
     env = ()
     if _check_pkgng():
-        pkg_command = 'pkg install -y'
+        pkg_command = '{0} install -y'.format(_cmd('pkg'))
         if not refresh:
             pkg_command += ' -L'
         if repo:
             env = (('PACKAGESITE', repo),)
     else:
-        pkg_command = 'pkg_add -r'
+        pkg_command = '{0} -r'.format(_cmd('pkg_add'))
         if repo:
             env = (('PACKAGEROOT', repo),)
     old = list_pkgs()
@@ -185,7 +197,7 @@ def upgrade():
         return {}
 
     old = list_pkgs()
-    __salt__['cmd.retcode']('pkg upgrade -y')
+    __salt__['cmd.retcode']('{0} upgrade -y'.format(_cmd('pkg')))
     new = list_pkgs()
     pkgs = {}
     for npkg in new:
@@ -219,9 +231,9 @@ def remove(name):
     if name in old:
         name = '{0}-{1}'.format(name, old[name])
         if _check_pkgng():
-            pkg_command = 'pkg delete -y'
+            pkg_command = '{0} delete -y'.format(_cmd('pkg'))
         else:
-            pkg_command - 'pkg_delete'
+            pkg_command = '{0}'.format(_cmd('pkg_delete'))
         __salt__['cmd.retcode']('{0} {1}'.format(pkg_command, name))
     new = list_pkgs()
     return _list_removed(old, new)
@@ -251,5 +263,5 @@ def rehash():
         salt '*' pkg.rehash
     '''
     shell = __salt__['cmd.run']('echo $SHELL').split('/')
-    if shell[len(shell)-1] in ["csh", "tcsh"]:
+    if shell[len(shell) - 1] in ['csh', 'tcsh']:
         __salt__['cmd.run']('rehash')

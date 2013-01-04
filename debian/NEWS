@@ -1,0 +1,11 @@
+salt (0.11.1-1) unstable; urgency=low
+
+  The default location for pki_dir, chachedir and sock_dir has changed
+  and includes now the service as the last part of the directory, i.e.
+  pki_dir has changed from /etc/salt/pki/ to /etc/salt/pki/master for the
+  master and /etc/salt/pki/minion/ for the minion.
+
+  The integrated migration from salt should move the necessary files
+  automatically.
+
+ -- Ulrich Dangel <uli@debian.org>  Fri, 04 Jan 2013 03:23:57 +0000

@@ -1,2 +1,2 @@
 version=3
-https://github.com/saltstack/salt/downloads /downloads/saltstack/salt/salt-(.*).tar.gz
+http://pypi.python.org/packages/source/s/salt/ salt-(.*).tar.gz

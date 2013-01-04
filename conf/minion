@@ -28,7 +28,7 @@
 #root_dir: /
 
 # The directory to store the pki information in
-#pki_dir: /etc/salt/pki
+#pki_dir: /etc/salt/pki/minion
 
 # Explicitly declare the id for this minion to use, if left commented the id
 # will be the hostname as returned by the python call: socket.getfqdn()
@@ -53,14 +53,8 @@
 #  cabinet: 13
 #  cab_u: 14-15
 
-# If the connection to the server is interrupted, the minion will
-# attempt to reconnect. sub_timeout allows you to control the rate
-# of reconnection attempts (in seconds). To disable reconnects, set
-# this value to 0.
-#sub_timeout: 60
-
 # Where cache data goes
-#cachedir: /var/cache/salt
+#cachedir: /var/cache/salt/minion
 
 # Verify and set permissions on configuration directories at startup
 #verify_env: True
@@ -72,7 +66,7 @@
 #cache_jobs: False
 
 # set the directory used to hold unix sockets
-#sock_dir: /var/run/salt
+#sock_dir: /var/run/salt/minion
 
 # Backup files that are replaced by file.managed and file.recurse under
 # 'cachedir'/file_backups relative to their original location and appended
@@ -286,8 +280,24 @@
 
 ######         Logging settings       #####
 ###########################################
-# The location of the minion log file
+# The location of the minion log file.
+# This can be a path for the log file, or, this can be, since 0.10.6, a system
+# logger address, for example:
+#	tcp://localhost:514/LOG_USER
+#	tcp://localhost/LOG_DAEMON
+#	udp://localhost:5145/LOG_KERN
+#	udp://localhost
+#	file:///dev/log
+#	file:///dev/log/LOG_SYSLOG
+#	file:///dev/log/LOG_DAEMON
+#
+# The above examples are self explanatory, but:
+#	<file|udp|tcp>://<host|socketpath>:<port-if-required>/<log-facility>
+#
+# Make sure you have a properly configured syslog or you won't get any warnings
+#
 #log_file: /var/log/salt/minion
+#
 #
 # The level of messages to send to the console.
 # One of 'garbage', 'trace', 'debug', info', 'warning', 'error', 'critical'.

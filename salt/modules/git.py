@@ -2,8 +2,12 @@
 Support for the Git SCM
 '''
 
+# Import python libs
 import os
+
+# Import salt libs
 from salt import utils, exceptions
+
 
 def _git_run(cmd, cwd=None, **kwargs):
     '''
@@ -297,7 +301,7 @@ def merge(cwd, branch='@{upstream}', opts=None, user=None):
 
     if not opts:
         opts = ''
-    cmd = 'git merge {0}{1} {2}'.format(
+    cmd = 'git merge {0} {1}'.format(
             branch,
             opts)
 

@@ -1,14 +1,22 @@
 # -*- coding: utf-8 -*-
-# vim: sw=4 ts=4 fenc=utf-8
-"""
-    :copyright: © 2012 UfSoft.org - :email:`Pedro Algarvio (pedro@algarvio.me)`
-    :license: Apache 2.0, see LICENSE for more details
-"""
+'''
+    tests.integration.states.match
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
+    :copyright: © 2012 by the SaltStack Team, see AUTHORS for more details.
+    :license: Apache 2.0, see LICENSE for more details.
+'''
+
+# Import python libs
 import os
+
+# Import salt libs
+import salt.utils
 import integration
 
 STATE_DIR = os.path.join(integration.FILES, 'file', 'base')
+
 
 class StateMatchTest(integration.ModuleCase):
     '''
@@ -27,7 +35,7 @@ class StateMatchTest(integration.ModuleCase):
         top_filename = 'issue-2167-ipcidr-match.sls'
         top_file = os.path.join(STATE_DIR, top_filename)
         try:
-            open(top_file, 'w').write(
+            salt.utils.fopen(top_file, 'w').write(
                 'base:\n'
                 '  {0}:\n'
                 '    - match: ipcidr\n'
@@ -35,7 +43,8 @@ class StateMatchTest(integration.ModuleCase):
             )
             ret = self.run_function('state.top', [top_filename])
             self.assertNotIn(
-                "AttributeError: 'Matcher' object has no attribute 'functions'",
+                'AttributeError: \'Matcher\' object has no attribute '
+                '\'functions\'',
                 ret
             )
         finally:

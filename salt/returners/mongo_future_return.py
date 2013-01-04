@@ -71,7 +71,6 @@ def returner(ret):
     '''
     conn, db = _get_conn()
     col = db[ret['id']]
-    back = {}
 
     if isinstance(ret['return'], dict):
         back = _remove_dots(ret['return'])
@@ -125,4 +124,37 @@ def get_fun(fun):
         rdata = db[collection].find_one({'fun': fun})
         if rdata:
             ret[collection] = rdata
+    return ret
+
+
+def get_minions():
+    '''
+    Return a list of minions
+    '''
+    conn, db = _get_conn()
+    ret = []
+    for name in db.collection_names():
+        if len(name) == 20:
+            try:
+                int(name)
+                continue
+            except ValueError:
+                pass
+        ret.append(name)
+    return ret
+
+
+def get_jids():
+    '''
+    Return a list of job ids
+    '''
+    conn, db = _get_conn()
+    ret = []
+    for name in db.collection_names():
+        if len(name) == 20:
+            try:
+                int(name)
+                ret.append(name)
+            except ValueError:
+                pass
     return ret

@@ -5,6 +5,7 @@ import shutil
 import tempfile
 
 # Import salt libs
+from salt import version
 from saltunittest import TestLoader, TextTestRunner
 import integration
 from integration import TestDaemon
@@ -37,6 +38,14 @@ class KeyTest(integration.ShellCase,
         test salt-key -L --json-out
         '''
         data = self.run_key('-L --json-out')
+        if version.__version_info__ < (0, 10, 8):
+            self.assertEqual(
+                "WARNING: The option --json-out is deprecated. Please "
+                "consider using '--out json' instead.",
+                data[0]
+            )
+
+        data = self.run_key('-L --out json')
 
         expect = [
             '{',
@@ -55,6 +64,15 @@ class KeyTest(integration.ShellCase,
         test salt-key -L --yaml-out
         '''
         data = self.run_key('-L --yaml-out')
+        if version.__version_info__ < (0, 10, 8):
+            self.assertEqual(
+                "WARNING: The option --yaml-out is deprecated. Please "
+                "consider using '--out yaml' instead.",
+                data[0]
+            )
+
+        data = self.run_key('-L --out yaml')
+
         expect = [
             'minions:',
             '- minion',
@@ -69,6 +87,15 @@ class KeyTest(integration.ShellCase,
         test salt-key -L --raw-out
         '''
         data = self.run_key('-L --raw-out')
+        if version.__version_info__ < (0, 10, 8):
+            self.assertEqual(
+                "WARNING: The option --raw-out is deprecated. Please "
+                "consider using '--out raw' instead.",
+                data[0]
+            )
+
+        data = self.run_key('-L --out raw')
+
         expect = [
             "{'minions_rejected': [], 'minions_pre': [], "
             "'minions': ['minion', 'sub_minion']}"

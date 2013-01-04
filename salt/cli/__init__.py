@@ -6,7 +6,7 @@ The management of salt command line utilities are stored in here
 import os
 import sys
 
-# Import salt components
+# Import salt libs
 import salt.cli.caller
 import salt.cli.cp
 import salt.cli.batch
@@ -181,6 +181,7 @@ class SaltKey(parsers.SaltKeyOptionParser):
             verify_env_dirs = []
             if not self.config['gen_keys']:
                 verify_env_dirs.extend([
+                    self.config['pki_dir'],
                     os.path.join(self.config['pki_dir'], 'minions'),
                     os.path.join(self.config['pki_dir'], 'minions_pre'),
                     os.path.join(self.config['pki_dir'], 'minions_rejected'),
@@ -224,6 +225,9 @@ class SaltCall(parsers.SaltCallOptionParser):
 
         if self.options.local:
             self.config['file_client'] = 'local'
+
+        # Setup file logging!
+        self.setup_logfile_logger()
 
         caller = salt.cli.caller.Caller(self.config)
 

@@ -11,7 +11,7 @@ import os
 import logging
 import traceback
 
-# Import Salt libs
+# Import salt libs
 from salt.exceptions import SaltInvocationError
 
 # Import third party libs

@@ -1,13 +1,15 @@
 from __future__ import absolute_import
+
+# Import python libs
 from StringIO import StringIO
 
-# Import Salt libs
+# Import salt libs
 from salt.exceptions import SaltRenderError
 import salt.utils.templates
 
 
-
-def render(template_file, env='', sls='', argline='', context=None, **kws):
+def render(template_file, env='', sls='', argline='',
+                          context=None, tmplpath=None, **kws):
     '''
     Render the template_file, passing the functions and grains into the
     Jinja rendering system.
@@ -26,7 +28,9 @@ def render(template_file, env='', sls='', argline='', context=None, **kws):
                     pillar=__pillar__,
                     env=env,
                     sls=sls,
-                    context=context)
+                    context=context,
+                    tmplpath=tmplpath,
+                    **kws)
     if not tmp_data.get('result', False):
         raise SaltRenderError(tmp_data.get('data',
             'Unknown render error in jinja renderer'))

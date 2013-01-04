@@ -1,11 +1,22 @@
 '''
 Manages configuration files via augeas
+
+:depends:   - Augeas Python adapter
 '''
-# Load Augeas libs
+
+# Load third party libs
+has_augeas = False
 try:
     from augeas import Augeas
+    has_augeas = True
 except ImportError:
     Augeas = False
+
+__outputter__ = {
+    'ls': 'yaml',
+    'get': 'yaml',
+    'match': 'yaml',
+}
 
 __outputter__ = {
     'ls': 'yaml',
@@ -18,7 +29,7 @@ def __virtual__():
     '''
     Only run this module if the augeas python module is installed
     '''
-    if Augeas:
+    if has_augeas:
         return 'augeas'
     else:
         return False
@@ -113,7 +124,6 @@ def setvalue(*args):
 
         %wheel ALL = PASSWD : ALL , NOPASSWD : /usr/bin/apt-get , /usr/bin/aptitude
     '''
-    prefix = None
     aug = Augeas()
     ret = {'retval': False}
 

@@ -2,17 +2,17 @@
 Set up the version of Salt
 '''
 
-# Import Python libs
+# Import python libs
 import sys
+import os
+import subprocess
 
-__version_info__ = (0, 10, 5)
+__version_info__ = (0, 11, 1)
 __version__ = '.'.join(map(str, __version_info__))
 
 
 # If we can get a version from Git use that instead, otherwise carry on
 try:
-    import os
-    import subprocess
     from salt.utils import which
 
     git = which('git')
@@ -26,10 +26,26 @@ try:
         )
         out, err = p.communicate()
         if out:
-            __version__ = '{0}'.format(out.strip().lstrip('v'))
-            __version_info__ = tuple(
-                [int(i) for i in __version__.split('-', 1)[0].split('.')]
+            parsed_version = '{0}'.format(out.strip().lstrip('v'))
+            parsed_version_info = tuple(
+                [int(i) for i in parsed_version.split('-', 1)[0].split('.')]
             )
+            if parsed_version_info != __version_info__:
+                msg = ('In order to get the proper salt version with the git '
+                       'hash you need to update salt\'s local git tags. '
+                       'Something like: \'git fetch --tags\' or '
+                       '\'git fetch --tags upstream\' if you followed '
+                       'salt\'s contribute documentation. The version string '
+                       'WILL NOT include the git hash.')
+                from salt import log
+                if log.is_console_configured():
+                    import logging
+                    logging.getLogger(__name__).warning(msg)
+                else:
+                    sys.stderr.write('WARNING: {0}\n'.format(msg))
+            else:
+                __version__ = parsed_version
+                __version_info__ = parsed_version_info
 except Exception:
     pass
 

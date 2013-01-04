@@ -2,13 +2,14 @@
 Support for YUM
 '''
 
+# Import python libs
 import logging
 import os
 import re
 from collections import namedtuple
 
-
 log = logging.getLogger(__name__)
+
 
 def __virtual__():
     '''
@@ -103,7 +104,7 @@ def available_version(name):
 
         salt '*' pkg.available_version <package name>
     '''
-    out = _parse_yum('list updates {0}'.format(name))
+    out = _parse_yum('list update {0}'.format(name))
     return out[0].version if out else ''
 
 
@@ -126,9 +127,9 @@ def version(name):
 
         salt '*' pkg.version <package name>
     '''
-    pkgs = list_pkgs()
-    if name in pkgs:
-        return pkgs[name]
+    out = _parse_yum('list installed {0}'.format(name))
+    if out:
+        return out[0].version
     else:
         return ''
 
@@ -143,8 +144,16 @@ def list_pkgs():
 
         salt '*' pkg.list_pkgs
     '''
-    out = _parse_yum('list installed')
-    return dict([(i.name, i.version) for i in out])
+    cmd = 'rpm -qa --queryformat "%{NAME}_|-%{VERSION}_|-%{RELEASE}\n"'
+    ret = {}
+    for line in __salt__['cmd.run'](cmd).splitlines():
+        name, version, rel = line.split('_|-')
+        pkgver = version
+        if rel:
+            pkgver += '-{0}'.format(rel)
+        __salt__['pkg_resource.add_pkg'](ret, name, pkgver)
+    __salt__['pkg_resource.sort_pkglist'](ret)
+    return ret
 
 
 def list_upgrades():
@@ -173,16 +182,24 @@ def refresh_db():
     return True
 
 
-def install(name, refresh=False, repo='', skip_verify=False, source=None,
-            **kwargs):
+def install(name=None, refresh=False, repo='', skip_verify=False, pkgs=None,
+            sources=None, **kwargs):
     '''
-    Install the passed package
+    Install the passed package(s), add refresh=True to clean the yum database
+    before package is installed.
 
     name
-        The name of the package to be installed
+        The name of the package to be installed. Note that this parameter is
+        ignored if either "pkgs" or "sources" is passed. Additionally, please
+        note that this option can only be used to install packages from a
+        software repository. To install a package file manually, use the
+        "sources" option.
+
+        CLI Example::
+            salt '*' pkg.install <package name>
 
     refresh
-        Clean out the yum database before executing
+        Whether or not to clean the yum database before executing.
 
     repo
         Specify a package repository from which to install the package
@@ -191,72 +208,51 @@ def install(name, refresh=False, repo='', skip_verify=False, source=None,
     skip_verify
         Skip the GPG verification check (e.g., ``--nogpgcheck``)
 
-    Return a dict containing the new package names and versions::
+
+    Multiple Package Installation Options:
+
+    pkgs
+        A list of packages to install from a software repository. Must be
+        passed as a python list.
+
+        CLI Example::
+            salt '*' pkg.install pkgs='["foo","bar"]'
+
+    sources
+        A list of RPM packages to install. Must be passed as a list of dicts,
+        with the keys being package names, and the values being the source URI
+        or local path to the package.
+
+        CLI Example::
+            salt '*' pkg.install sources='[{"foo": "salt://foo.rpm"},{"bar": "salt://bar.rpm"}]'
+
+
+    Returns a dict containing the new package names and versions::
 
         {'<package>': {'old': '<old-version>',
                        'new': '<new-version>']}
-
-    CLI Example::
-
-        salt '*' pkg.install <package name>
     '''
+    # Catch both boolean input from state and string input from CLI
+    if refresh is True or refresh == 'True':
+        refresh_db()
 
-    if source is not None:
-        if __salt__['config.valid_fileproto'](source):
-            # Cached RPM from master
-            pkg_file = __salt__['cp.cache_file'](source)
-            pkg_type = 'remote'
-        else:
-            # RPM file local to the minion
-            pkg_file = source
-            pkg_type = 'local'
-        pname,pversion = _parse_pkg_meta(pkg_file)
-        if not pname:
-            pkg_file = None
-            if pkg_type == 'remote':
-                log.error('Failed to cache {0}. Are you sure this path is '
-                          'correct?'.format(source))
-            elif pkg_type == 'local':
-                if not os.path.isfile(source):
-                    log.error('Package file {0} not found. Are you sure this '
-                              'path is correct?'.format(source))
-                else:
-                    log.error('Unable to parse package metadata for '
-                              '{0}'.format(source))
-        elif name != pname:
-            pkg_file = None
-            log.error('Package file {0} (Name: {1}) does not match the '
-                      'specified package name ({2})'.format(source,
-                                                            pname,
-                                                            name))
-        # Don't proceed if there was a problem with the package file
-        if pkg_file is None: return {}
+    pkg_params,pkg_type = __salt__['pkg_resource.parse_targets'](name,
+                                                                 pkgs,
+                                                                 sources)
+    if pkg_params is None or len(pkg_params) == 0:
+        return {}
 
     cmd = 'yum -y {repo} {gpgcheck} install {pkg}'.format(
         repo='--enablerepo={0}'.format(repo) if repo else '',
         gpgcheck='--nogpgcheck' if skip_verify else '',
-        pkg=pkg_file if source is not None else name,
+        pkg=' '.join(pkg_params),
     )
-
-    if refresh: refresh_db()
     old = list_pkgs()
-    __salt__['cmd.retcode'](cmd)
+    stderr = __salt__['cmd.run_all'](cmd).get('stderr','')
+    if stderr:
+        log.error(stderr)
     new = list_pkgs()
-    pkgs = {}
-    for npkg in new:
-        if npkg in old:
-            if old[npkg] == new[npkg]:
-                # no change in the package
-                continue
-            else:
-                # the package was here before and the version has changed
-                pkgs[npkg] = {'old': old[npkg],
-                              'new': new[npkg]}
-        else:
-            # the package is freshly installed
-            pkgs[npkg] = {'old': '',
-                          'new': new[npkg]}
-    return pkgs
+    return __salt__['pkg_resource.find_changes'](old,new)
 
 
 def upgrade():

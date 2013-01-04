@@ -1,11 +1,13 @@
 '''
 Install Python packages with pip to either the system or a virtualenv
 '''
-# Import Python libs
+
+# Import python libs
 import os
 import logging
 import shutil
-# Import Salt libs
+
+# Import salt libs
 import salt.utils
 from salt._compat import string_types
 from salt.exceptions import CommandExecutionError, CommandNotFoundError
@@ -15,6 +17,7 @@ from salt.exceptions import CommandExecutionError, CommandNotFoundError
 # definite way to tell if pip is installed on not.
 
 logger = logging.getLogger(__name__)
+
 
 def _get_pip_bin(bin_env):
     '''
@@ -176,7 +179,23 @@ def install(pkgs=None,
     treq = None
     if requirements:
         if requirements.startswith('salt://'):
-            req = __salt__['cp.cache_file'](requirements)
+            # If being called from state.virtualenv, the requirements file
+            # should already be cached, let's try to use that one
+            req = __salt__['cp.is_cached'](requirements)
+            if not req:
+                # It's not cached, let's cache it.
+                req = __salt__['cp.cache_file'](requirements)
+
+            if not req:
+                return {
+                    'result': False,
+                    'comment': (
+                        'pip requirements file \'{0}\' not found'.format(
+                            requirements
+                        )
+                    )
+                }
+
             treq = salt.utils.mkstemp()
             shutil.copyfile(req, treq)
         else:
@@ -442,7 +461,9 @@ def freeze(bin_env=None,
             "Could not find the path to the virtualenv's 'activate' binary"
         )
 
-    cmd = 'source {0}; {1} freeze'.format(activate, pip_bin)
+    # We use dot(.) instead of source because it's apparently the better and/or
+    # more supported way to source files on the various "major" linux shells.
+    cmd = '. {0}; {1} freeze'.format(activate, pip_bin)
 
     result = __salt__['cmd.run_all'](cmd, runas=runas, cwd=cwd)
 

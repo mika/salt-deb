@@ -1,8 +1,16 @@
 '''
 Support for YUM
 
-Required python modules: yum, rpm, rpmUtils
+:depends:   - yum Python module
+            - rpm Python module
+            - rpmUtils Python module
 '''
+
+# Import python libs
+import re
+import logging
+
+# Import third party libs
 try:
     import yum
     import rpm
@@ -10,10 +18,6 @@ try:
     has_yumdeps = True
 except (ImportError, AttributeError):
     has_yumdeps = False
-
-import logging
-import os
-import re
 
 log = logging.getLogger(__name__)
 
@@ -92,58 +96,6 @@ def _list_removed(old, new):
         if pkg not in new:
             pkgs.append(pkg)
 
-    return pkgs
-
-
-def _parse_pkg_meta(path):
-    '''
-    Retrieve package name and version number from package metadata
-    '''
-    name = ''
-    version = ''
-    rel = ''
-    result = __salt__['cmd.run_all']('rpm -qpi "{0}"'.format(path))
-    if result['retcode'] == 0:
-        for line in result['stdout'].splitlines():
-            if not name:
-                m = re.match('^Name\s*:\s*(\S+)', line)
-                if m:
-                    name = m.group(1)
-                    continue
-            if not version:
-                m = re.match('^Version\s*:\s*(\S+)', line)
-                if m:
-                    version = m.group(1)
-                    continue
-            if not rel:
-                m = re.match('^Release\s*:\s*(\S+)', line)
-                if m:
-                    version = m.group(1)
-                    continue
-    if rel:
-        version += '-{0}'.format(rel)
-    return name, version
-
-
-def _compare_versions(old, new):
-    '''
-    Returns a dict that that displays old and new versions for a package after
-    install/upgrade of package.
-    '''
-    pkgs = {}
-    for npkg in new:
-        if npkg in old:
-            if old[npkg] == new[npkg]:
-                # no change in the package
-                continue
-            else:
-                # the package was here before and the version has changed
-                pkgs[npkg] = {'old': old[npkg],
-                              'new': new[npkg]}
-        else:
-            # the package is freshly installed
-            pkgs[npkg] = {'old': '',
-                          'new': new[npkg]}
     return pkgs
 
 
@@ -228,6 +180,11 @@ def version(name):
         salt '*' pkg.version <package name>
     '''
     pkgs = list_pkgs(name)
+
+    # check for '.arch' appended to pkg name (i.e. 32 bit installed on 64 bit
+    # machine is '.i386')
+    if name.find('.') >= 0:
+        name = name.split('.')[0]
     if name in pkgs:
         return pkgs[name]
     else:
@@ -244,30 +201,25 @@ def list_pkgs(*args):
 
         salt '*' pkg.list_pkgs
     '''
-    ts = rpm.TransactionSet()
-    pkgs = {}
-    # In order to support specific package versions, we are going to use the
-    # yum libraries to handle pattern matching
-    yb = yum.YumBase()
-    setattr(yb.conf, 'assumeyes', True)
+    cmd = 'rpm -qa --queryformat "%{NAME}_|-%{VERSION}_|-%{RELEASE}\n"'
+    ret = {}
+    for line in __salt__['cmd.run'](cmd).splitlines():
+        if not '_|-' in line:
+            continue
+        name, version, rel = line.split('_|-')
+        pkgver = version
+        if rel:
+            pkgver += '-{0}'.format(rel)
+        __salt__['pkg_resource.add_pkg'](ret, name, pkgver)
+    __salt__['pkg_resource.sort_pkglist'](ret)
+    if args:
+        pkgs = ret
+        ret = {}
+        for pkg in pkgs.keys():
+            if pkg in args:
+                ret[pkg] = pkgs[pkg]
+    return ret
 
-    # if no args are passed in get all packages
-    if len(args) == 0:
-        for h in ts.dbMatch():
-            pkgs[h['name']] = '-'.join([h['version'], h['release']])
-    else:
-        # get package version for each package in *args
-        for arg in args:
-            # Make yum do the pattern matching
-            a = yb.pkgSack.returnPackages(patterns=[arg], ignore_case=False)
-            # make sure there is an a
-            if len(a) > 0:
-                arg = a[0].name
-            # use the name from yum to do an rpm lookup
-            for h in ts.dbMatch('name', arg):
-                pkgs[h['name']] = '-'.join([h['version'], h['release']])
-
-    return pkgs
 
 
 def refresh_db():
@@ -295,17 +247,24 @@ def clean_metadata():
     return refresh_db()
 
 
-def install(pkgs, refresh=False, repo='', skip_verify=False, sources=None,
-            **kwargs):
+def install(name=None, refresh=False, repo='', skip_verify=False, pkgs=None,
+            sources=None, **kwargs):
     '''
-    Install the passed package(s)
+    Install the passed package(s), add refresh=True to clean the yum database
+    before package is installed.
 
-    pkgs
-        The name of the package(s) to be installed. Can be comma separated, or
-        space separated if the parameter is encased in quotes.
+    name
+        The name of the package to be installed. Note that this parameter is
+        ignored if either "pkgs" or "sources" is passed. Additionally, please
+        note that this option can only be used to install packages from a
+        software repository. To install a package file manually, use the
+        "sources" option.
+
+        CLI Example::
+            salt '*' pkg.install <package name>
 
     refresh
-        Clean out the yum database before executing. Defaults to False.
+        Whether or not to clean the yum database before executing.
 
     repo
         Specify a package repository to install from.
@@ -314,78 +273,41 @@ def install(pkgs, refresh=False, repo='', skip_verify=False, sources=None,
     skip_verify
         Skip the GPG verification check. (e.g., ``--nogpgcheck``)
 
-    sources
-        A list of rpm sources to use for installing the package(s).
 
-    Return a dict containing the new package names and versions::
+    Multiple Package Installation Options:
+
+    pkgs
+        A list of packages to install from a software repository. Must be
+        passed as a python list.
+
+        CLI Example::
+            salt '*' pkg.install pkgs='["foo","bar"]'
+
+    sources
+        A list of RPM packages to install. Must be passed as a list of dicts,
+        with the keys being package names, and the values being the source URI
+        or local path to the package.
+
+        CLI Example::
+            salt '*' pkg.install sources='[{"foo": "salt://foo.rpm"},{"bar": "salt://bar.rpm"}]'
+
+
+    Returns a dict containing the new package names and versions::
 
         {'<package>': {'old': '<old-version>',
                        'new': '<new-version>']}
-
-    CLI Example::
-
-        salt '*' pkg.install 'package package package'
     '''
-    if refresh:
+    # Catch both boolean input from state and string input from CLI
+    if refresh is True or refresh == 'True':
         refresh_db()
 
-    if ',' in pkgs:
-        pkgs = pkgs.split(',')
-    else:
-        pkgs = pkgs.split(' ')
+    pkg_params,pkg_type = __salt__['pkg_resource.parse_targets'](name,
+                                                                 pkgs,
+                                                                 sources)
+    if pkg_params is None or len(pkg_params) == 0:
+        return {}
 
-    if sources is not None:
-        if ',' in sources:
-            srcsplit = sources.split(',')
-        else:
-            srcsplit = sources.split(' ')
-
-        # Ensure that number of sources matches number of packages specified
-        if len(srcsplit) != len(pkgs):
-            log.error('Number of sources ({0}) does not match '
-                      'number of specfiied packages '
-                      '({1})'.format(len(srcsplit), len(pkgs)))
-            return {}
-
-        srcinfo = []
-        for src in srcsplit:
-            if __salt__['config.valid_fileproto'](src):
-                # Cached RPM from master
-                srcinfo.append((__salt__['cp.cache_file'](src),'remote'))
-            else:
-                # RPM file local to the minion
-                srcinfo.append((src,'local'))
-
-        # Check metadata to make sure the name passed matches the source
-        problems = []
-        for i in range(0, len(pkgs)):
-            rpm_path, pkg_type = srcinfo[i]
-            pname, pversion = _parse_pkg_meta(rpm_path)
-            if not pname:
-                if pkg_type == 'remote':
-                    problems.append('Failed to cache {0}. Are you sure this '
-                                    'path is correct?'.format(srcsplit[i]))
-                elif pkg_type == 'local':
-                    if not os.path.isfile(rpm_path):
-                        problems.append('Package file {0} not found. Are '
-                                        'you sure this path is '
-                                        'correct?'.format(rpm_path))
-                    else:
-                        problems.append('Unable to parse package metadata for '
-                                        '{0}'.format(rpm_path))
-            elif pkgs[i] != pname:
-                problems.append('Package file {0} (Name: {1}) does not '
-                                'match the specified package name '
-                                '({2})'.format(srcsplit[i], pname, pkgs[i]))
-
-        # If any problems are found in the caching or metadata parsing done in
-        # the above for loop, log each problem and then return an empty dict.
-        # Do not proceed to attempt package installation.
-        if problems:
-            for problem in problems: log.error(problem)
-            return {}
-
-    old = list_pkgs(*pkgs)
+    old = list_pkgs()
 
     yb = yum.YumBase()
     setattr(yb.conf, 'assumeyes', True)
@@ -395,34 +317,32 @@ def install(pkgs, refresh=False, repo='', skip_verify=False, sources=None,
         log.info('Enabling repo \'{0}\''.format(repo))
         yb.repos.enableRepo(repo)
 
-    for i in range(0, len(pkgs)):
+    for target in pkg_params:
         try:
-            if sources is not None:
-                rpm_path, pkg_type = srcinfo[i]
+            if pkg_type == 'file':
                 log.info(
-                    'Selecting \'{0}\' for local installation'.format(rpm_path)
+                    'Selecting "{0}" for local installation'.format(target)
                 )
-                a = yb.installLocal(rpm_path)
+                a = yb.installLocal(target)
                 # if yum didn't install anything, maybe its a downgrade?
                 log.debug('Added {0} transactions'.format(len(a)))
-                if len(a) == 0 and rpm_path not in old.keys():
+                if len(a) == 0 and target not in old.keys():
                     log.info('Upgrade failed, trying local downgrade')
-                    a = yb.downgradeLocal(rpm_path)
+                    yb.downgradeLocal(target)
             else:
-                target = pkgs[i]
-                log.info('Selecting \'{0}\' for installation'.format(target))
+                log.info('Selecting "{0}" for installation'.format(target))
                 # Changed to pattern to allow specific package versions
                 a = yb.install(pattern=target)
                 # if yum didn't install anything, maybe its a downgrade?
                 log.debug('Added {0} transactions'.format(len(a)))
                 if len(a) == 0 and target not in old.keys():
                     log.info('Upgrade failed, trying downgrade')
-                    a = yb.downgrade(pattern=target)
+                    yb.downgrade(pattern=target)
         except Exception:
-            log.exception('Package {0} failed to install'.format(target))
-    # Resolve Deps before attempting install.  This needs to be improved
-    # by also tracking any deps that may get upgraded/installed during this
-    # process.  For now only the version of the package(s) you request be
+            log.exception('Package "{0}" failed to install'.format(target))
+    # Resolve Deps before attempting install.  This needs to be improved by
+    # also tracking any deps that may get upgraded/installed during this
+    # process. For now only the version of the package(s) you request be
     # installed is tracked.
     log.info('Resolving dependencies')
     yb.resolveDeps()
@@ -433,9 +353,10 @@ def install(pkgs, refresh=False, repo='', skip_verify=False, sources=None,
 
     yb.closeRpmDB()
 
-    new = list_pkgs(*pkgs)
+    new = list_pkgs()
 
-    return _compare_versions(old, new)
+    return __salt__['pkg_resource.find_changes'](old,new)
+
 
 
 def upgrade():
@@ -471,6 +392,28 @@ def upgrade():
 
     new = list_pkgs()
     return _compare_versions(old, new)
+
+
+def _compare_versions(old, new):
+    '''
+    Returns a dict that that displays old and new versions for a package after
+    install/upgrade of package.
+    '''
+    pkgs = {}
+    for npkg in new:
+        if npkg in old:
+            if old[npkg] == new[npkg]:
+                # no change in the package
+                continue
+            else:
+                # the package was here before and the version has changed
+                pkgs[npkg] = {'old': old[npkg],
+                              'new': new[npkg]}
+        else:
+            # the package is freshly installed
+            pkgs[npkg] = {'old': '',
+                          'new': new[npkg]}
+    return pkgs
 
 
 def remove(pkgs):
@@ -517,3 +460,96 @@ def purge(pkgs):
         salt '*' pkg.purge <package name>
     '''
     return remove(pkgs)
+
+
+def verify(*package):
+    '''
+    Runs an rpm -Va on a system, and returns the results in a dict
+
+    CLI Example::
+
+        salt '*' pkg.verify
+    '''
+    ftypes = {'c': 'config',
+              'd': 'doc',
+              'g': 'ghost',
+              'l': 'license',
+              'r': 'readme'}
+    ret = {}
+    if package:
+        packages = ' '.join(package)
+        cmd = 'rpm -V {0}'.format(packages)
+    else:
+        cmd = 'rpm -Va'
+    for line in __salt__['cmd.run'](cmd).split('\n'):
+        fdict = {'mismatch': []}
+        if 'missing' in line:
+            line = ' ' + line
+            fdict['missing'] = True
+            del(fdict['mismatch'])
+        fname = line[13:]
+        if line[11:12] in ftypes:
+            fdict['type'] = ftypes[line[11:12]]
+        if line[0:1] == 'S':
+            fdict['mismatch'].append('size')
+        if line[1:2] == 'M':
+            fdict['mismatch'].append('mode')
+        if line[2:3] == '5':
+            fdict['mismatch'].append('md5sum')
+        if line[3:4] == 'D':
+            fdict['mismatch'].append('device major/minor number')
+        if line[4:5] == 'L':
+            fdict['mismatch'].append('readlink path')
+        if line[5:6] == 'U':
+            fdict['mismatch'].append('user')
+        if line[6:7] == 'G':
+            fdict['mismatch'].append('group')
+        if line[7:8] == 'T':
+            fdict['mismatch'].append('mtime')
+        if line[8:9] == 'P':
+            fdict['mismatch'].append('capabilities')
+        ret[fname] = fdict
+    return ret
+
+
+def grouplist():
+    '''
+    Lists all groups known by yum on this system
+
+    CLI Example::
+
+        salt '*' pkg.grouplist
+    '''
+    ret = {'installed': [], 'available': [], 'available languages': {}}
+    yb = yum.YumBase()
+    (installed, available) = yb.doGroupLists()
+    for group in installed:
+        ret['installed'].append(group.name)
+    for group in available:
+        if group.langonly:
+            ret['available languages'][group.name] = {
+                'name': group.name,
+                'language': group.langonly}
+        else:
+            ret['available'].append(group.name)
+    return ret
+
+
+def groupinfo(groupname):
+    '''
+    Lists packages belonging to a certain group
+
+    CLI Example::
+
+        salt '*' pkg.groupinfo 'Perl Support'
+    '''
+    yb = yum.YumBase()
+    (installed, available) = yb.doGroupLists()
+    for group in installed + available:
+        if group.name == groupname:
+            return {'manditory packages': group.mandatory_packages,
+                   'optional packages': group.optional_packages,
+                   'default packages': group.default_packages,
+                   'conditional packages': group.conditional_packages,
+                   'description': group.description}
+

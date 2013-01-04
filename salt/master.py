@@ -3,7 +3,7 @@ This module contains all of the routines needed to set up a master server, this
 involves preparing the three listeners and the workers needed by the master.
 '''
 
-# Import python modules
+# Import python libs
 import os
 import re
 import time
@@ -21,16 +21,12 @@ import resource
 import subprocess
 import multiprocessing
 
-# Import zeromq
+# Import third party libs
 import zmq
-
-# Import Third Party Libs
 import yaml
-
-# RSA Support
 from M2Crypto import RSA
 
-# Import salt modules
+# Import salt libs
 import salt.crypt
 import salt.utils
 import salt.client
@@ -41,6 +37,7 @@ import salt.runner
 import salt.auth
 import salt.wheel
 import salt.minion
+import salt.search
 import salt.utils
 import salt.utils.atomicfile
 import salt.utils.event
@@ -135,7 +132,7 @@ class SMaster(object):
                 os.unlink(keyfile)
 
             key = salt.crypt.Crypticle.generate_key_string()
-            with open(keyfile, 'w+') as fp_:
+            with salt.utils.fopen(keyfile, 'w+') as fp_:
                 fp_.write(key)
             os.umask(cumask)
             os.chmod(keyfile, 256)
@@ -163,26 +160,31 @@ class Master(SMaster):
         '''
         Clean out the old jobs
         '''
-        if self.opts['keep_jobs'] == 0:
-            return
         jid_root = os.path.join(self.opts['cachedir'], 'jobs')
+        search = salt.search.Search(self.opts)
+        last = time.time()
         while True:
-            cur = "{0:%Y%m%d%H}".format(datetime.datetime.now())
+            if self.opts['keep_jobs'] != 0:
+                cur = "{0:%Y%m%d%H}".format(datetime.datetime.now())
 
-            for top in os.listdir(jid_root):
-                t_path = os.path.join(jid_root, top)
-                for final in os.listdir(t_path):
-                    f_path = os.path.join(t_path, final)
-                    jid_file = os.path.join(f_path, 'jid')
-                    if not os.path.isfile(jid_file):
-                        continue
-                    with open(jid_file, 'r') as fn_:
-                        jid = fn_.read()
-                    if len(jid) < 18:
-                        # Invalid jid, scrub the dir
-                        shutil.rmtree(f_path)
-                    elif int(cur) - int(jid[:10]) > self.opts['keep_jobs']:
-                        shutil.rmtree(f_path)
+                for top in os.listdir(jid_root):
+                    t_path = os.path.join(jid_root, top)
+                    for final in os.listdir(t_path):
+                        f_path = os.path.join(t_path, final)
+                        jid_file = os.path.join(f_path, 'jid')
+                        if not os.path.isfile(jid_file):
+                            continue
+                        with salt.utils.fopen(jid_file, 'r') as fn_:
+                            jid = fn_.read()
+                        if len(jid) < 18:
+                            # Invalid jid, scrub the dir
+                            shutil.rmtree(f_path)
+                        elif int(cur) - int(jid[:10]) > self.opts['keep_jobs']:
+                            shutil.rmtree(f_path)
+            if self.opts.get('search'):
+                now = time.time()
+                if now - last > self.opts['search_index_interval']:
+                    search.index()
             try:
                 time.sleep(60)
             except KeyboardInterrupt:
@@ -240,6 +242,7 @@ class Master(SMaster):
                 self.master_key)
         reqserv.start_publisher()
         reqserv.start_event_publisher()
+        reqserv.start_reactor()
 
         def sigterm_clean(signum, frame):
             '''
@@ -322,6 +325,8 @@ class Publisher(multiprocessing.Process):
         except KeyboardInterrupt:
             pub_sock.close()
             pull_sock.close()
+        finally:
+            context.term()
 
 
 class ReqServer(object):
@@ -388,11 +393,24 @@ class ReqServer(object):
         self.eventpublisher = salt.utils.event.EventPublisher(self.opts)
         self.eventpublisher.start()
 
+    def start_reactor(self):
+        '''
+        Start the reactor, but only if the reactor interface is configured
+        '''
+        if self.opts.get('reactor'):
+            self.reactor = salt.utils.event.Reactor(self.opts)
+            self.reactor.start()
+
     def run(self):
         '''
         Start up the ReqServer
         '''
         self.__bind()
+
+    def __del__(self):
+        self.clients.close()
+        self.workers.close()
+        self.context.term()
 
 
 class MWorker(multiprocessing.Process):
@@ -438,13 +456,14 @@ class MWorker(multiprocessing.Process):
                     raise exc
         except KeyboardInterrupt:
             socket.close()
+        finally:
+            context.term()
 
     def _handle_payload(self, payload):
         '''
         The _handle_payload method is the key method used to figure out what
         needs to be done with communication to the server
         '''
-        key = load = None
         try:
             key = payload['enc']
             load = payload['load']
@@ -525,7 +544,7 @@ class AESFuncs(object):
             return fnd
         for root in self.opts['file_roots'][env]:
             full = os.path.join(root, path)
-            if os.path.isfile(full):
+            if os.path.isfile(full) and not self.__is_file_ignored(full):
                 fnd['path'] = full
                 fnd['rel'] = path
                 return fnd
@@ -537,10 +556,10 @@ class AESFuncs(object):
         The string needs to verify as 'salt' with the minion public key
         '''
         pub_path = os.path.join(self.opts['pki_dir'], 'minions', id_)
-        with open(pub_path, 'r') as fp_:
+        with salt.utils.fopen(pub_path, 'r') as fp_:
             minion_pub = fp_.read()
         tmp_pub = salt.utils.mkstemp()
-        with open(tmp_pub, 'w+') as fp_:
+        with salt.utils.fopen(tmp_pub, 'w+') as fp_:
             fp_.write(minion_pub)
 
         pub = None
@@ -559,6 +578,25 @@ class AESFuncs(object):
         log.error('Salt minion claiming to be {0} has attempted to'
                   'communicate with the master and could not be verified'
                   .format(id_))
+        return False
+
+    def __is_file_ignored(self, fn):
+        '''
+        If file_ignore_regex or file_ignore_glob were given in config,
+        compare the given file path against all of them and return True
+        on the first match.
+        '''
+        if self.opts['file_ignore_regex']:
+            for r in self.opts['file_ignore_regex']:
+                if re.search(r, fn):
+                    log.debug('File matching file_ignore_regex. Skipping: {0}'.format(fn))
+                    return True
+
+        if self.opts['file_ignore_glob']:
+            for g in self.opts['file_ignore_glob']:
+                if fnmatch.fnmatch(fn, g):
+                    log.debug('File matching file_ignore_glob. Skipping: {0}'.format(fn))
+                    return True
         return False
 
     def _ext_nodes(self, load):
@@ -632,9 +670,11 @@ class AESFuncs(object):
         ret['dest'] = fnd['rel']
         gzip = load.get('gzip', None)
 
-        with open(fnd['path'], 'rb') as fp_:
+        with salt.utils.fopen(fnd['path'], 'rb') as fp_:
             fp_.seek(load['loc'])
             data = fp_.read(self.opts['file_buffer_size'])
+            #if not data:
+            #    ret.update(self._file_hash(load))
             if gzip and data:
                 data = salt.utils.gzip_util.compress(data, gzip)
                 ret['gzip'] = gzip
@@ -651,7 +691,7 @@ class AESFuncs(object):
         if not path:
             return {}
         ret = {}
-        with open(path, 'rb') as fp_:
+        with salt.utils.fopen(path, 'rb') as fp_:
             ret['hsum'] = getattr(hashlib, self.opts['hash_type'])(
                     fp_.read()).hexdigest()
         ret['hash_type'] = self.opts['hash_type']
@@ -665,18 +705,16 @@ class AESFuncs(object):
         ret = []
         if load['env'] not in self.opts['file_roots']:
             return ret
+
         for path in self.opts['file_roots'][load['env']]:
             for root, dirs, files in os.walk(path, followlinks=True):
                 for fn in files:
-                    ret.append(
-                        os.path.relpath(
-                            os.path.join(
-                                root,
-                                fn
-                                ),
-                            path
+                    rel_fn = os.path.relpath(
+                                os.path.join(root, fn),
+                                path
                             )
-                        )
+                    if not self.__is_file_ignored(rel_fn):
+                        ret.append(rel_fn)
         return ret
 
     def _file_list_emptydirs(self, load):
@@ -689,7 +727,9 @@ class AESFuncs(object):
         for path in self.opts['file_roots'][load['env']]:
             for root, dirs, files in os.walk(path, followlinks=True):
                 if len(dirs) == 0 and len(files) == 0:
-                    ret.append(os.path.relpath(root, path))
+                    rel_fn = os.path.relpath(root, path)
+                    if not self.__is_file_ignored(rel_fn):
+                        ret.append(rel_fn)
         return ret
 
     def _dir_list(self, load):
@@ -727,7 +767,7 @@ class AESFuncs(object):
             if not os.path.isdir(cdir):
                 os.makedirs(cdir)
             datap = os.path.join(cdir, 'data.p')
-            with open(datap, 'w+') as fp_:
+            with salt.utils.fopen(datap, 'w+') as fp_:
                 fp_.write(
                         self.serial.dumps(
                             {'grains': load['grains'],
@@ -772,6 +812,10 @@ class AESFuncs(object):
                     self.opts['hash_type'])
         log.info('Got return from {id} for job {jid}'.format(**load))
         self.event.fire_event(load, load['jid'])
+        if self.opts['master_ext_job_cache']:
+            fstr = '{0}.returner'.format(self.opts['master_ext_job_cache'])
+            self.mminion.returners[fstr](load)
+            return
         if not self.opts['job_cache'] or self.opts.get('ext_job_cache'):
             return
         jid_dir = salt.utils.jid_dir(
@@ -838,7 +882,7 @@ class AESFuncs(object):
             return False
         wtag = os.path.join(jid_dir, 'wtag_{0}'.format(load['id']))
         try:
-            with open(wtag, 'w+') as fp_:
+            with salt.utils.fopen(wtag, 'w+') as fp_:
                 fp_.write('')
         except (IOError, OSError):
             log.error(
@@ -854,6 +898,8 @@ class AESFuncs(object):
             ret = {'jid': load['jid'],
                    'id': key,
                    'return': item}
+            if 'out' in load:
+                ret['out'] = load['out']
             self._return(ret)
         if os.path.isfile(wtag):
             os.remove(wtag)
@@ -975,7 +1021,7 @@ class AESFuncs(object):
                 'id': clear_load['id'],
                }
         self.serial.dump(
-                load, open(
+                load, salt.utils.fopen(
                     os.path.join(
                         salt.utils.jid_dir(
                             jid,
@@ -1003,7 +1049,8 @@ class AESFuncs(object):
             try:
                 timeout = int(clear_load['tmo'])
             except ValueError:
-                msg = 'Failed to parse timeout value: {0}'.format(clear_load['tmo'])
+                msg = 'Failed to parse timeout value: {0}'.format(
+                        clear_load['tmo'])
                 log.warn(msg)
                 return {}
         if 'tgt_type' in clear_load:
@@ -1029,14 +1076,18 @@ class AESFuncs(object):
         else:
             ret_form = 'clean'
         if ret_form == 'clean':
-            return self.local.get_returns(
+            try:
+                return self.local.get_returns(
                     jid,
                     self.ckminions.check_minions(
                         clear_load['tgt'],
                         expr_form
-                        ),
+                    ),
                     timeout
-                    )
+                )
+            finally:
+                pub_sock.close()
+                context.term()
         elif ret_form == 'full':
             ret = self.local.get_full_returns(
                     jid,
@@ -1047,7 +1098,11 @@ class AESFuncs(object):
                     timeout
                     )
             ret['__jid__'] = jid
-            return ret
+            try:
+                return ret
+            finally:
+                pub_sock.close()
+                context.term()
 
     def run_func(self, func, load):
         '''
@@ -1139,14 +1194,15 @@ class ClearFuncs(object):
         '''
         minions = {}
         master_pem = ''
-        with open(self.opts['conf_file'], 'r') as fp_:
+        with salt.utils.fopen(self.opts['conf_file'], 'r') as fp_:
             master_conf = fp_.read()
         minion_dir = os.path.join(self.opts['pki_dir'], 'minions')
         for host in os.listdir(minion_dir):
             pub = os.path.join(minion_dir, host)
-            minions[host] = open(pub, 'r').read()
+            minions[host] = salt.utils.fopen(pub, 'r').read()
         if self.opts['cluster_mode'] == 'full':
-            with open(os.path.join(self.opts['pki_dir'], 'master.pem')) as fp_:
+            master_pem_path = os.path.join(self.opts['pki_dir'], 'master.pem')
+            with salt.utils.fopen(master_pem_path) as fp_:
                 master_pem = fp_.read()
         return [minions,
                 master_conf,
@@ -1220,7 +1276,7 @@ class ClearFuncs(object):
             log.warn(message.format(autosign_file))
             return False
 
-        with open(autosign_file, 'r') as fp_:
+        with salt.utils.fopen(autosign_file, 'r') as fp_:
             for line in fp_:
                 line = line.strip()
 
@@ -1235,7 +1291,8 @@ class ClearFuncs(object):
                     if re.match(line, keyid):
                         return True
                 except re.error:
-                    message = "{0} is not a valid regular expression, ignoring line in {1}"
+                    message = ('{0} is not a valid regular expression, '
+                               'ignoring line in {1}')
                     log.warn(message.format(line, autosign_file))
                     continue
 
@@ -1285,7 +1342,7 @@ class ClearFuncs(object):
             return ret
         elif os.path.isfile(pubfn):
             # The key has been accepted check it
-            if not open(pubfn, 'r').read() == load['pub']:
+            if not salt.utils.fopen(pubfn, 'r').read() == load['pub']:
                 log.error(
                     'Authentication attempt from {id} failed, the public '
                     'keys did not match. This may be an attempt to compromise '
@@ -1301,8 +1358,10 @@ class ClearFuncs(object):
         elif not os.path.isfile(pubfn_pend)\
                 and not self._check_autosign(load['id']):
             # This is a new key, stick it in pre
-            log.info('New public key placed in pending for {id}'.format(**load))
-            with open(pubfn_pend, 'w+') as fp_:
+            log.info(
+                'New public key placed in pending for {id}'.format(**load)
+            )
+            with salt.utils.fopen(pubfn_pend, 'w+') as fp_:
                 fp_.write(load['pub'])
             ret = {'enc': 'clear',
                    'load': {'ret': True}}
@@ -1316,7 +1375,7 @@ class ClearFuncs(object):
                 and not self._check_autosign(load['id']):
             # This key is in pending, if it is the same key ret True, else
             # ret False
-            if not open(pubfn_pend, 'r').read() == load['pub']:
+            if not salt.utils.fopen(pubfn_pend, 'r').read() == load['pub']:
                 log.error(
                     'Authentication attempt from {id} failed, the public '
                     'keys in pending did not match. This may be an attempt to '
@@ -1331,7 +1390,8 @@ class ClearFuncs(object):
             else:
                 log.info(
                     'Authentication failed from host {id}, the key is in '
-                    'pending and needs to be accepted with salt-key -a {id}'.format(**load)
+                    'pending and needs to be accepted with salt-key'
+                    '-a {id}'.format(**load)
                 )
                 eload = {'result': True,
                          'act': 'pend',
@@ -1343,7 +1403,7 @@ class ClearFuncs(object):
         elif os.path.isfile(pubfn_pend)\
                 and self._check_autosign(load['id']):
             # This key is in pending, if it is the same key auto accept it
-            if not open(pubfn_pend, 'r').read() == load['pub']:
+            if not salt.utils.fopen(pubfn_pend, 'r').read() == load['pub']:
                 log.error(
                     'Authentication attempt from {id} failed, the public '
                     'keys in pending did not match. This may be an attempt to '
@@ -1372,7 +1432,7 @@ class ClearFuncs(object):
                     'load': {'ret': False}}
 
         log.info('Authentication accepted from {id}'.format(**load))
-        with open(pubfn, 'w+') as fp_:
+        with salt.utils.fopen(pubfn, 'w+') as fp_:
             fp_.write(load['pub'])
         pub = None
 
@@ -1387,19 +1447,36 @@ class ClearFuncs(object):
 
         ret = {'enc': 'pub',
                'pub_key': self.master_key.get_pub_str(),
-               'token': self.master_key.token,
                'publish_port': self.opts['publish_port'],
               }
-        if 'token' in load:
-            try:
-                mtoken = self.master_key.key.private_decrypt(load['token'], 4)
-                ret['token'] = pub.public_encrypt(mtoken, 4)
-            except Exception:
-                # Token failed to decrypt, send back the salty bacon to
-                # support older minions
-                pass
+        if self.opts['auth_mode'] >= 2:
+            if 'token' in load:
+                try:
+                    mtoken = self.master_key.key.private_decrypt(load['token'], 4)
+                    aes = '{0}_|-{1}'.format(self.opts['aes'], mtoken)
+                except Exception:
+                    # Token failed to decrypt, send back the salty bacon to
+                    # support older minions
+                    pass
+            else:
+                aes = self.opts['aes']
 
-        ret['aes'] = pub.public_encrypt(self.opts['aes'], 4)
+            ret['aes'] = pub.public_encrypt(aes, 4)
+        else:
+            if 'token' in load:
+                try:
+                    mtoken = self.master_key.key.private_decrypt(load['token'], 4)
+                    ret['token'] = pub.public_encrypt(mtoken, 4)
+                except Exception:
+                    # Token failed to decrypt, send back the salty bacon to
+                    # support older minions
+                    pass
+
+            aes = self.opts['aes']
+            ret['aes'] = pub.public_encrypt(self.opts['aes'], 4)
+        # Be aggressive about the signature
+        digest = hashlib.sha256(aes).hexdigest()
+        ret['sig'] = self.master_key.key.private_encrypt(digest, 5)
         eload = {'result': True,
                  'act': 'accept',
                  'id': load['id'],
@@ -1433,7 +1510,7 @@ class ClearFuncs(object):
                     **clear_load)
         except Exception as exc:
             log.error(
-                    ('Exception occured in the wheel system: {0}'
+                    ('Exception occurred in the wheel system: {0}'
                         ).format(exc)
                     )
             return ''
@@ -1570,7 +1647,7 @@ class ClearFuncs(object):
         # Save the invocation information
         self.serial.dump(
                 clear_load,
-                open(os.path.join(jid_dir, '.load.p'), 'w+')
+                salt.utils.fopen(os.path.join(jid_dir, '.load.p'), 'w+')
                 )
         if self.opts['ext_job_cache']:
             try:
@@ -1626,6 +1703,14 @@ class ClearFuncs(object):
                 load['tgt'],
                 load.get('tgt_type', 'glob')
                 )
-        return {'enc': 'clear',
-                'load': {'jid': clear_load['jid'],
-                         'minions': minions}}
+        try:
+            return {
+                'enc': 'clear',
+                'load': {
+                    'jid': clear_load['jid'],
+                    'minions': minions
+                }
+            }
+        finally:
+            pub_sock.close()
+            context.term()

@@ -3,10 +3,15 @@
     salt.utils.filebuffer
     ~~~~~~~~~~~~~~~~~~~~~
 
-    :copyright: © 2012 UfSoft.org - :email:`Pedro Algarvio (pedro@algarvio.me)`
+    This utility allows parsing a file in chunks.
+
+    :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
+    :copyright: © 2012 by the SaltStack Team, see AUTHORS for more details.
     :license: Apache 2.0, see LICENSE for more details.
 '''
 
+# Import salt libs
+import salt.utils
 from salt.exceptions import SaltException
 
 
@@ -36,12 +41,12 @@ class BufferedReader(object):
     :param mode: The mode the file should be opened. **Only read modes**.
 
     '''
-    def __init__(self, path, max_in_mem=256*1024, chunk_size=32*1024,
+    def __init__(self, path, max_in_mem=256 * 1024, chunk_size=32 * 1024,
                  mode='r'):
         if 'a' in mode or 'w' in mode:
             raise InvalidFileMode("Cannot open file in write or append mode")
         self.__path = path
-        self.__file = open(self.__path, mode)
+        self.__file = salt.utils.fopen(self.__path, mode)
         self.__max_in_mem = max_in_mem
         self.__chunk_size = chunk_size
         self.__buffered = None
@@ -104,9 +109,9 @@ if __name__ == '__main__':
     tpath = "/tmp/starting_states.rst"
 
     for fmultiplier in (1, 10, 50, 100, 800, 3200):
-        ffile = open(tpath, "w")
+        ffile = salt.utils.fopen(tpath, "w")
         while fmultiplier > 0:
-            ffile.write(open(fpath).read())
+            ffile.write(salt.utils.fopen(fpath).read())
             fmultiplier -= 1
 
         ffile.close()

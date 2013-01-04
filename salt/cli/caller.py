@@ -3,7 +3,7 @@ The caller module is used as a front-end to manage direct calls to the salt
 minion modules.
 '''
 
-# Import python modules
+# Import python libs
 import os
 import sys
 import logging
@@ -65,7 +65,7 @@ class Caller(object):
                     'pid': os.getpid(),
                     'jid': ret['jid'],
                     'tgt': 'salt-call'}
-            with open(proc_fn, 'w+') as fp_:
+            with salt.utils.fopen(proc_fn, 'w+') as fp_:
                 fp_.write(self.serial.dumps(sdata))
             ret['return'] = self.minion.functions[fun](*args, **kw)
         except (TypeError, CommandExecutionError) as exc:
@@ -94,7 +94,7 @@ class Caller(object):
             for returner in self.opts['return'].split(','):
                 try:
                     self.minion.returners['{0}.returner'.format(returner)](ret)
-                except Exception as exc:
+                except Exception:
                     pass
         return ret
 
@@ -116,7 +116,7 @@ class Caller(object):
         Print out the grains
         '''
         grains = salt.loader.grains(self.opts)
-        salt.output.display_output(grains, 'yaml', self.opts)
+        salt.output.display_output({'local': grains}, 'grains', self.opts)
 
     def run(self):
         '''

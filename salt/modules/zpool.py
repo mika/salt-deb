@@ -3,9 +3,12 @@ zfs support.
 
 Assumes FreeBSD
 
-requires: mkfile
+:depends:   - mkfile
 '''
+
+# Import python libs
 import os
+
 
 def __virtual__():
     '''

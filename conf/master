@@ -16,10 +16,6 @@
 # The tcp port used by the publisher
 #publish_port: 4505
 
-# Refresh the publisher connections when sending out commands, this is a fix
-# for zeromq losing some minion connections. Default: False
-#pub_refresh: False
-
 # The user to run the salt-master as. Salt will update all permissions to
 # allow the specified user to run the master. If the modified files cause
 # conflicts set verify_env to False.
@@ -60,10 +56,10 @@
 #root_dir: /
 
 # Directory used to store public key data
-#pki_dir: /etc/salt/pki
+#pki_dir: /etc/salt/pki/master
 
 # Directory to store job and cache data
-#cachedir: /var/cache/salt
+#cachedir: /var/cache/salt/master
 
 # Verify and set permissions on configuration directories at startup
 #verify_env: True
@@ -76,7 +72,7 @@
 #timeout: 5
 
 # Set the directory used to hold unix sockets
-#sock_dir: /var/run/salt
+#sock_dir: /var/run/salt/master
 
 # The master maintains a job cache, while this is a great addition it can be
 # a burden on the master for larger deployments (over 5000 minions).
@@ -235,6 +231,24 @@
 # The buffer size in the file server can be adjusted here:
 #file_buffer_size: 1048576
 
+# A regular expression (or a list of expressions) that will be matched
+# against the file path before syncing the modules and states to the minions.
+# This includes files affected by the file.recurse state.
+# For example, if you manage your custom modules and states in subversion
+# and don't want all the '.svn' folders and content synced to your minions,
+# you could set this to '/\.svn($|/)'. By default nothing is ignored.
+#file_ignore_regex:
+# - '/\.svn($|/)'
+# - '/\.git($|/)'
+
+# A file glob (or list of file globs) that will be matched against the file
+# path before syncing the modules and states to the minions. This is similar
+# to file_ignore_regex above, but works on globs instead of regex. By default
+# nothing is ignored.
+#file_ignore_glob:
+#  - '*.pyc'
+#  - '*/somefolder/*.bak'
+
 # Pillar Configurations:
 # The Salt Pillar, is a system that allows for the building of global data
 # that is refined based on minion. Basically, the pillar creates data that
@@ -318,6 +332,21 @@
 #####         Logging settings       #####
 ##########################################
 # The location of the master log file
+# This can be a path for the log file, or, this can be, since 0.10.6, a system
+# logger address, for example:
+#	tcp://localhost:514/LOG_USER
+#	tcp://localhost/LOG_DAEMON
+#	udp://localhost:5145/LOG_KERN
+#	udp://localhost
+#	file:///dev/log
+#	file:///dev/log/LOG_SYSLOG
+#	file:///dev/log/LOG_DAEMON
+#
+# The above examples are self explanatory, but:
+#	<file|udp|tcp>://<host|socketpath>:<port-if-required>/<log-facility>
+#
+# Make sure you have a properly configured syslog or you won't get any warnings
+#
 #log_file: /var/log/salt/master
 #key_logfile: /var/log/salt/key
 #

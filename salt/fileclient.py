@@ -1,6 +1,7 @@
 '''
 Classes that manage file clients
 '''
+
 # Import python libs
 import contextlib
 import logging
@@ -10,7 +11,7 @@ import shutil
 import string
 import subprocess
 
-# Import third-party libs
+# Import third party libs
 import yaml
 
 # Import salt libs
@@ -23,7 +24,6 @@ import salt.payload
 import salt.utils
 import salt.utils.templates
 import salt.utils.gzip_util
-
 from salt._compat import (
     URLError, HTTPError, BaseHTTPServer, urlparse, url_open)
 
@@ -294,7 +294,8 @@ class Client(object):
                 # the relative path on the minion.
                 minion_relpath = string.lstrip(fn_[len(prefix):], '/')
                 minion_mkdir = '{0}/{1}'.format(dest, minion_relpath)
-                os.makedirs(minion_mkdir)
+                if not os.path.isdir(minion_mkdir):
+                    os.makedirs(minion_mkdir)
                 ret.append(minion_mkdir)
         ret.sort()
         return ret
@@ -326,7 +327,7 @@ class Client(object):
                 os.makedirs(destdir)
         try:
             with contextlib.closing(url_open(url)) as srcfp:
-                with open(dest, 'wb') as destfp:
+                with salt.utils.fopen(dest, 'wb') as destfp:
                     shutil.copyfileobj(srcfp, destfp)
             return dest
         except HTTPError as ex:
@@ -336,7 +337,6 @@ class Client(object):
                     *BaseHTTPServer.BaseHTTPRequestHandler.responses[ex.code]))
         except URLError as ex:
             raise MinionError('Error reading {0}: {1}'.format(url, ex.reason))
-        return ''
 
     def get_template(
             self,
@@ -485,7 +485,7 @@ class LocalClient(Client):
                 log.warning(err.format(path))
                 return ret
             else:
-                with open(path, 'rb') as f:
+                with salt.utils.fopen(path, 'rb') as f:
                     ret['hsum'] = hashlib.md5(f.read()).hexdigest()
                 ret['hash_type'] = 'md5'
                 return ret
@@ -493,7 +493,7 @@ class LocalClient(Client):
         if not path:
             return {}
         ret = {}
-        with open(path, 'rb') as f:
+        with salt.utils.fopen(path, 'rb') as f:
             ret['hsum'] = getattr(hashlib, self.opts['hash_type'])(
                 f.read()).hexdigest()
         ret['hash_type'] = self.opts['hash_type']
@@ -563,6 +563,7 @@ class RemoteClient(Client):
         cache
         '''
         log.info('Fetching file \'{0}\''.format(path))
+        d_tries = 0
         path = self._check_proto(path)
         load = {'path': path,
                 'env': env,
@@ -579,7 +580,7 @@ class RemoteClient(Client):
                     os.makedirs(destdir)
                 else:
                     return False
-            fn_ = open(dest, 'wb+')
+            fn_ = salt.utils.fopen(dest, 'wb+')
         while True:
             if not fn_:
                 load['loc'] = 0
@@ -602,13 +603,28 @@ class RemoteClient(Client):
                     with self._cache_loc(data['dest'], env) as cache_dest:
                         dest = cache_dest
                         if not os.path.exists(cache_dest):
-                            with open(cache_dest, 'wb+') as f:
+                            with salt.utils.fopen(cache_dest, 'wb+') as f:
                                 f.write(data['data'])
+                if 'hsum' in data and d_tries < 3:
+                    # Master has prompted a file verification, if the
+                    # verification fails, redownload the file. Try 3 times
+                    d_tries += 1
+                    with salt.utils.fopen(dest, 'rb') as fp_:
+                        hsum = getattr(
+                                hashlib,
+                                data.get('hash_type', 'md5')
+                                )(fp_.read()).hexdigest()
+                        if hsum != data['hsum']:
+                            log.warn(
+                                ('Bad download of file {0}, attempt {1} of 3'
+                                    ).format(path, d_tries)
+                                )
+                            continue
                 break
             if not fn_:
                 with self._cache_loc(data['dest'], env) as cache_dest:
                     dest = cache_dest
-                    fn_ = open(dest, 'wb+')
+                    fn_ = salt.utils.fopen(dest, 'wb+')
             if data.get('gzip', None):
                 data = salt.utils.gzip_util.uncompress(data['data'])
             else:
@@ -684,7 +700,7 @@ class RemoteClient(Client):
                 return {}
             else:
                 ret = {}
-                with open(path, 'rb') as f:
+                with salt.utils.fopen(path, 'rb') as f:
                     ret['hsum'] = hashlib.md5(f.read()).hexdigest()
                 ret['hash_type'] = 'md5'
                 return ret

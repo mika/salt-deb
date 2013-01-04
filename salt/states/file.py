@@ -75,7 +75,8 @@ something like this:
       file.recurse:
         - source: salt://code/flask
 '''
-# Import Python libs
+
+# Import python libs
 import os
 import shutil
 import difflib
@@ -84,7 +85,7 @@ import copy
 import re
 import fnmatch
 
-# Import Salt libs
+# Import salt libs
 import salt.utils
 import salt.utils.templates
 from salt._compat import string_types
@@ -261,8 +262,13 @@ def _check_directory(
     if changes:
         comment = 'The following files will be changed:\n'
         for fn_ in changes:
-            for key, val in changes[fn_].items():
-                comment += '{0}: {1} - {2}\n'.format(fn_, key, val)
+            # for some reason we're getting tuples and dicts.
+            # Let's do the right thing for each.
+            if isinstance(changes[fn_], tuple):
+                key, val = changes[fn_]
+            else:
+                key, val = changes[fn_].keys()[0], changes[fn_].values()[0]
+            comment += '{0}: {1} - {2}\n'.format(fn_, key, val)
         return None, comment
     return True, 'The directory {0} is in the correct state'.format(name)
 
@@ -333,29 +339,30 @@ def _symlink_check(name, target, force):
                        'should be. Did you mean to use force?'.format(name))
 
 
-def _check_include_exclude(path_str,include_pat=None,exclude_pat=None):
+def _check_include_exclude(path_str, include_pat=None, exclude_pat=None):
     '''
      Check for glob or regexp patterns for include_pat and exclude_pat in the
      'path_str' string and return True/False conditions as follows.
-      - Default: return 'True' if no include_pat or exclude_pat patterns are supplied
-      - If only include_pat or exclude_pat is supplied. Return 'True' if string passes
-        the include_pat test or failed exclude_pat test respectively
-      - If both include_pat and exclude_pat are supplied, return Ture if include_pat
-        matches 'AND' exclude_pat does not matches
+      - Default: return 'True' if no include_pat or exclude_pat patterns are
+        supplied
+      - If only include_pat or exclude_pat is supplied. Return 'True' if string
+        passes the include_pat test or failed exclude_pat test respectively
+      - If both include_pat and exclude_pat are supplied, return Ture if
+        include_pat matches 'AND' exclude_pat does not matches
     '''
     ret = True    #-- default true
     # Before pattern match, check if it is regexp (E@'') or glob(default)
     if include_pat:
-        if re.match('E@',include_pat):
+        if re.match('E@', include_pat):
             retchk_include = True if re.search(include_pat[2:], path_str) else False
         else:
-            retchk_include = True if fnmatch.fnmatch(path_str,include_pat) else False
+            retchk_include = True if fnmatch.fnmatch(path_str, include_pat) else False
 
     if exclude_pat:
-        if re.match('E@',exclude_pat):
+        if re.match('E@', exclude_pat):
             retchk_exclude = False if re.search(exclude_pat[2:], path_str) else True
         else:
-            retchk_exclude = False if fnmatch.fnmatch(path_str,exclude_pat) else True
+            retchk_exclude = False if fnmatch.fnmatch(path_str, exclude_pat) else True
 
     # Now apply include/exclude conditions
     if include_pat and not exclude_pat:
@@ -365,12 +372,18 @@ def _check_include_exclude(path_str,include_pat=None,exclude_pat=None):
     elif include_pat and exclude_pat:
         ret = retchk_include and retchk_exclude
     else:
-	ret = True
+        ret = True
 
     return ret
 
-
-def symlink(name, target, force=False, makedirs=False):
+def symlink(
+        name,
+        target,
+        force=False,
+        makedirs=False,
+        user=None,
+        group=None,
+        mode=None):
     '''
     Create a symlink
 
@@ -404,7 +417,11 @@ def symlink(name, target, force=False, makedirs=False):
 
     if not os.path.isdir(os.path.dirname(name)):
         if makedirs:
-            __salt__['file.makedirs'](name)
+            __salt__['file.makedirs'](
+                    name,
+                    user=user,
+                    group=group,
+                    mode=mode)
         else:
             return _error(ret,
                           ('Directory {0} for symlink is not present'
@@ -787,7 +804,7 @@ def directory(name,
                     # file.user_to_uid returns '' if user does not exist. Above
                     # check for user is not fatal, so we need to be sure user
                     # exists.
-                    if type(uid).__name__ == 'str':
+                    if isinstance(uid, basestring):
                         ret['result'] = False
                         ret['comment'] = 'Failed to enforce ownership for ' \
                                          'user {0} (user does not ' \
@@ -804,7 +821,7 @@ def directory(name,
                 if group:
                     gid = __salt__['file.group_to_gid'](group)
                     # As above with user, we need to make sure group exists.
-                    if type(gid).__name__ == 'str':
+                    if isinstance(gid, basestring):
                         ret['result'] = False
                         ret['comment'] = 'Failed to enforce group ownership ' \
                                          'for group {0}'.format(group, user)
@@ -821,7 +838,7 @@ def directory(name,
             if targets:
                 file_tree = __salt__['file.find'](name)
                 for path in file_tree:
-                    fstat = os.stat(path)
+                    fstat = os.lstat(path)
                     if 'user' in targets and fstat.st_uid != uid:
                             needs_fixed['user'] = True
                             if needs_fixed.get('group'):
@@ -941,7 +958,7 @@ def recurse(name,
         (default is False)
 
     include_pat
-	When copying, include only this pattern from the source. Default
+        When copying, include only this pattern from the source. Default
         is glob match , if prefixed with E@ then regexp match
         Example::
 
@@ -949,7 +966,7 @@ def recurse(name,
           - include_pat: E@hello      :: regexp matches 'otherhello', 'hello01' ...
 
     exclude_pat
-	When copying, exclude this pattern from the source. If both
+        When copying, exclude this pattern from the source. If both
         include_pat and exclude_pat are supplied, then it will apply
         conditions cumulatively. i.e. first select based on include_pat and
         then with in that result, applies exclude_pat.
@@ -966,6 +983,15 @@ def recurse(name,
            'result': True,
            'comment': {}  # { path: [comment, ...] }
            }
+
+    if 'mode' in kwargs:
+        ret['result'] = False
+        ret['comment'] = (
+            '\'mode\' is not allowed in \'file.recurse\'. Please use '
+            '\'file_mode\' and \'dir_mode\'.'
+        )
+        return ret
+
     u_check = _check_user(user, group)
     if u_check:
         # The specified user or group do not exist
@@ -1018,6 +1044,14 @@ def recurse(name,
                 _ret['changes'] = { 'diff': 'Replaced directory with a new file' }
                 merge_ret(path, _ret)
 
+        # Conflicts can occur is some kwargs are passed in here
+        pass_kwargs = {}
+        faults = ['mode', 'makedirs', 'replace']
+        for key in kwargs:
+            if not key in faults:
+                pass_kwargs[key] = kwargs[key]
+
+
         _ret = managed(
             path,
             source=source,
@@ -1031,7 +1065,7 @@ def recurse(name,
             defaults=defaults,
             env=env,
             backup=backup,
-            **kwargs)
+            **pass_kwargs)
         merge_ret(path, _ret)
 
     def manage_directory(path):
@@ -1172,11 +1206,11 @@ def sed(name, before, after, limit='', backup='.bak', options='-r -e',
         ret['comment'] = 'File {0} is set to be updated'.format(name)
         ret['result'] = None
         return ret
-    with open(name, 'rb') as fp_:
+    with salt.utils.fopen(name, 'rb') as fp_:
         slines = fp_.readlines()
     # should be ok now; perform the edit
     __salt__['file.sed'](name, before, after, limit, backup, options, flags)
-    with open(name, 'rb') as fp_:
+    with salt.utils.fopen(name, 'rb') as fp_:
         nlines = fp_.readlines()
 
     # check the result
@@ -1247,12 +1281,12 @@ def comment(name, regex, char='#', backup='.bak'):
         ret['comment'] = 'File {0} is set to be updated'.format(name)
         ret['result'] = None
         return ret
-    with open(name, 'rb') as fp_:
+    with salt.utils.fopen(name, 'rb') as fp_:
         slines = fp_.readlines()
     # Perform the edit
     __salt__['file.comment'](name, regex, char, backup)
 
-    with open(name, 'rb') as fp_:
+    with salt.utils.fopen(name, 'rb') as fp_:
         nlines = fp_.readlines()
 
     # Check the result
@@ -1321,13 +1355,13 @@ def uncomment(name, regex, char='#', backup='.bak'):
         ret['result'] = None
         return ret
 
-    with open(name, 'rb') as fp_:
+    with salt.utils.fopen(name, 'rb') as fp_:
         slines = fp_.readlines()
 
     # Perform the edit
     __salt__['file.uncomment'](name, regex, char, backup)
 
-    with open(name, 'rb') as fp_:
+    with salt.utils.fopen(name, 'rb') as fp_:
         nlines = fp_.readlines()
 
     # Check the result
@@ -1408,12 +1442,12 @@ def append(name, text=None, makedirs=False, source=None, source_hash=None):
                 "state file.append is loading text contents from cached source "
                 "{0}({1})".format(source, cached_source_path)
             )
-            text = open(cached_source_path, 'r').read()
+            text = salt.utils.fopen(cached_source_path, 'r').read()
 
     if isinstance(text, string_types):
         text = (text,)
 
-    with open(name, 'rb') as fp_:
+    with salt.utils.fopen(name, 'rb') as fp_:
         slines = fp_.readlines()
 
     count = 0
@@ -1442,7 +1476,7 @@ def append(name, text=None, makedirs=False, source=None, source_hash=None):
             __salt__['file.append'](name, line)
             count += 1
 
-    with open(name, 'rb') as fp_:
+    with salt.utils.fopen(name, 'rb') as fp_:
         nlines = fp_.readlines()
 
     if slines != nlines:
@@ -1643,7 +1677,6 @@ def rename(name, source, force=False, makedirs=False):
     except (IOError, OSError):
         return _error(
             ret, 'Failed to move "{0}" to "{1}"'.format(source, name))
-        return ret
 
     ret['comment'] = 'Moved "{0}" to "{1}"'.format(source, name)
     ret['changes'] = {name: source}
@@ -1676,7 +1709,7 @@ def accumulated(name, filename, text, **kwargs):
         'comment': ''
     }
     if not filter(lambda x: 'file' in x,
-                  kwargs.get('require_in', ()) + kwargs.get('watch_in', ())):
+                  kwargs.get('require_in', []) + kwargs.get('watch_in', [])):
         ret['result'] = False
         ret['comment'] = ('Orphaned accumulator {0} in '
                           '{1}:{2}'.format(name, kwargs['__sls__'],

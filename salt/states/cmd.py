@@ -111,27 +111,6 @@ import salt.state
 log = logging.getLogger(__name__)
 
 
-def _delegate_to_state(func, name, **kws):
-    '''
-    Delegate execution to a state function with arguments(name+kws).
-    '''
-
-    # eg, _delegate_to_state("cmd.run", "echo hello", cwd="/")
-
-    state_name, state_func = func.split('.', 1)
-
-    # the following code fragment is copied and modified from salt's
-    # modules.state.single()
-    kws.update(dict(state=state_name, fun=state_func, name=name))
-    opts = copy.copy(__opts__)
-    st_ = salt.state.State(opts)
-    err = st_.verify_data(kws)
-    if err:
-        log.error(str(err))
-        raise Exception('Failed verifying state input!')
-    return st_.call(kws)
-
-
 def _reinterpreted_state(state):
     '''
     Re-interpret the state return by salt.sate.run using our protocol.
@@ -269,6 +248,10 @@ def wait(name,
 
     shell
         The shell to use for execution, defaults to /bin/sh
+    
+    stateful
+        The command being executed is expected to return data about executing
+        a state
     '''
     return {'name': name,
             'changes': {},
@@ -291,7 +274,18 @@ def wait_script(name,
     '''
     Download a script from a remote source and execute it only if a watch
     statement calls it.
-
+    
+    source
+        The source script being downloaded to the minion, this source script is
+        hosted on the salt master server.  If the file is located on the master 
+        in the directory named spam, and is called eggs, the source string is 
+        salt://spam/eggs
+    
+    template
+        If this setting is applied then the named templating engine will be
+        used to render the downloaded file, currently jinja, mako, and wempy
+        are supported
+    
     name
         The command to execute, remember that the command will execute with the
         path and permissions of the salt-minion.
@@ -316,6 +310,14 @@ def wait_script(name,
 
     shell
         The shell to use for execution, defaults to the shell grain
+    
+    env
+        The root directory of the environment for the referencing script. The
+        environments are defined in the master config file.
+    
+    stateful
+        The command being executed is expected to return data about executing
+        a state
     '''
     return {'name': name,
             'changes': {},
@@ -360,6 +362,10 @@ def run(name,
 
     shell
         The shell to use for execution, defaults to the shell grain
+    
+    env
+        The root directory of the environment for the referencing script. The
+        environments are defined in the master config file.
 
     stateful
         The command being executed is expected to return data about executing
@@ -424,10 +430,10 @@ def run(name,
             ret['changes'] = cmd_all
             ret['result'] = not bool(cmd_all['retcode'])
             ret['comment'] = 'Command "{0}" run'.format(name)
-            return ret
+            return _reinterpreted_state(ret) if stateful else ret
         ret['result'] = None
         ret['comment'] = 'Command "{0}" would have been executed'.format(name)
-        return ret
+        return _reinterpreted_state(ret) if stateful else ret
 
     finally:
         os.setegid(pgid)
@@ -448,7 +454,17 @@ def script(name,
     '''
     Download a script from a remote source and execute it. The name can be the
     source or the source value can be defined.
-
+    source
+        The source script being downloaded to the minion, this source script is
+        hosted on the salt master server.  If the file is located on the master 
+        in the directory named spam, and is called eggs, the source string is 
+        salt://spam/eggs
+    
+    template
+        If this setting is applied then the named templating engine will be
+        used to render the downloaded file, currently jinja, mako, and wempy
+        are supported
+    
     name
         The command to execute, remember that the command will execute with the
         path and permissions of the salt-minion.
@@ -473,7 +489,11 @@ def script(name,
 
     shell
         The shell to use for execution, defaults to the shell grain
-
+    
+    env
+        The root directory of the environment for the referencing script. The
+        environments are defined in the master config file.
+    
     stateful
         The command being executed is expected to return data about executing
         a state
@@ -508,7 +528,7 @@ def script(name,
     pgid = os.getegid()
 
     cmd_kwargs = copy.deepcopy(kwargs)
-    cmd_kwargs.update({'cwd': cwd,
+    cmd_kwargs.update({
                   'runas': user,
                   'shell': shell or __grains__['shell'],
                   'env': env,
@@ -537,7 +557,7 @@ def script(name,
             ret['result'] = None
             ret['comment'] = 'Command "{0}" would have been executed'
             ret['comment'] = ret['comment'].format(name)
-            return ret
+            return _reinterpreted_state(ret) if stateful else ret
 
         # Wow, we passed the test, run this sucker!
         try:
@@ -552,7 +572,7 @@ def script(name,
         else:
             ret['result'] = not bool(cmd_all['retcode'])
         ret['comment'] = 'Command "{0}" run'.format(name)
-        return ret
+        return _reinterpreted_state(ret) if stateful else ret
 
     finally:
         os.setegid(pgid)
@@ -562,28 +582,20 @@ def mod_watch(name, **kwargs):
     Execute a cmd function based on a watch call
     '''
     if kwargs['sfun'] == 'wait' or kwargs['sfun'] == 'run':
-        if kwargs['stateful']:
+        if kwargs.get('stateful'):
             kwargs.pop('stateful')
-            return _reinterpreted_state(
-                    _delegate_to_state(
-                        'cmd.run',
-                        **kwargs
-                        )
-                    )
+            return _reinterpreted_state(run(name, **kwargs))
         return run(name, **kwargs)
+
     elif kwargs['sfun'] == 'wait_script' or kwargs['sfun'] == 'script':
-        if kwargs['stateful']:
+        if kwargs.get('stateful'):
             kwargs.pop('stateful')
-            return _reinterpreted_state(
-                    _delegate_to_state(
-                        'cmd.script',
-                        **kwargs
-                        )
-                    )
+            return _reinterpreted_state(script(name, **kwargs))
         return script(name, **kwargs)
+
     return {'name': name,
             'changes': {},
-            'comment': ('cmd.{0} does nto work with the watch requisite, '
+            'comment': ('cmd.{0} does not work with the watch requisite, '
                        'please use cmd.wait of cmd.wait_script').format(
                            kwargs['sfun']
                            ),

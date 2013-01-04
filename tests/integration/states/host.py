@@ -5,14 +5,15 @@ tests for host state
 # Import python libs
 import os
 import shutil
-#
+
 # Import salt libs
+import salt.utils
 import integration
 
 HFILE = os.path.join(integration.TMP, 'hosts')
 
 
-class HostTest(integration.ModuleCase):
+class HostTest(integration.ModuleCase, integration.SaltReturnAssertsMixIn):
     '''
     Validate the host state
     '''
@@ -33,9 +34,8 @@ class HostTest(integration.ModuleCase):
         name = 'spam.bacon'
         ip = '10.10.10.10'
         ret = self.run_state('host.present', name=name, ip=ip)
-        result = self.state_result(ret)
-        self.assertTrue(result)
-        with open(HFILE) as fp_:
+        self.assertSaltTrueReturn(ret)
+        with salt.utils.fopen(HFILE) as fp_:
             output = fp_.read()
             self.assertIn('{0}\t\t{1}'.format(ip, name), output)
 

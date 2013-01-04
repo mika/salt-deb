@@ -3,16 +3,23 @@
 salt.utils.parsers
 ~~~~~~~~~~~~~~~~~~
 
-:copyright: © 2012 UfSoft.org - :email:`Pedro Algarvio (pedro@algarvio.me)`
-:license: Apache 2.0, see LICENSE for more details.
+    This is were all the black magic happens on all of salt's cli tools.
+
+    :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
+    :copyright: © 2012 by the SaltStack Team, see AUTHORS for more details.
+    :license: Apache 2.0, see LICENSE for more details.
 '''
 
+# Import python libs
 import os
 import sys
 import logging
 import optparse
+import traceback
 from functools import partial
-from salt import config, log, version
+
+# Import salt libs
+from salt import config, loader, log, version
 
 
 def _sorted(mixins_or_funcs):
@@ -116,7 +123,7 @@ class OptionParser(optparse.OptionParser):
                 process_option_func()
             except Exception, err:
                 self.error('Error while processing {0}: {1}'.format(
-                    process_option_func, err
+                    process_option_func, traceback.format_exc(err)
                 ))
 
         # Run the functions on self._mixin_after_parsed_funcs
@@ -548,9 +555,9 @@ class OutputOptionsMixIn(object):
             '--raw-out',
             default=False,
             action='store_true',
-            help=('Print the output from the \'{0}\' command in raw python '
-                  'form, this is suitable for re-reading the output into an '
-                  'executing python script with eval.'.format(
+            help=('DEPRECATED. Print the output from the \'{0}\' command in '
+                  'raw python form, this is suitable for re-reading the '
+                  'output into an executing python script with eval.'.format(
                       self.get_prog_name()
                   ))
         )
@@ -558,26 +565,53 @@ class OutputOptionsMixIn(object):
             '--yaml-out',
             default=False,
             action='store_true',
-            help='Print the output from the \'{0}\' command in yaml.'.format(
-                self.get_prog_name()
-            )
+            help=('DEPRECATED. Print the output from the \'{0}\' command in '
+                  'yaml.'.format(self.get_prog_name()))
         )
         group.add_option(
             '--json-out',
             default=False,
             action='store_true',
-            help='Print the output from the \'{0}\' command in json.'.format(
-                self.get_prog_name()
-            )
+            help=('DEPRECATED. Print the output from the \'{0}\' command in '
+                  'json.'.format(self.get_prog_name()))
         )
+
         if self._include_text_out_:
             group.add_option(
                 '--text-out',
                 default=False,
                 action='store_true',
-                help=('Print the output from the \'{0}\' command in the same '
-                      'form the shell would.'.format(self.get_prog_name()))
+                help=('DEPRECATED. Print the output from the \'{0}\' command '
+                      'in the same form the shell would.'.format(
+                          self.get_prog_name()
+                      ))
             )
+
+        outputters = loader.outputters(
+            config.minion_config(None, check_dns=False)
+        )
+
+        group.add_option(
+            '--out', '--output',
+            dest='output',
+            choices=outputters.keys(),
+            help=(
+                'Print the output from the \'{0}\' command using the '
+                'specified outputter. One of {1}.'.format(
+                    self.get_prog_name(),
+                    ', '.join([repr(k) for k in outputters])
+                )
+            )
+        )
+        group.add_option(
+            '--out-indent', '--output-indent',
+            dest='output_indent',
+            default=None,
+            type=int,
+            help=('Print the output indented by the provided value in spaces. '
+                  'Negative values disables indentation. Only applicable in '
+                  'outputters that support indentation.')
+        )
         group.add_option(
             '--no-color',
             default=False,
@@ -585,25 +619,49 @@ class OutputOptionsMixIn(object):
             help='Disable all colored output'
         )
 
-        for option in group.option_list:
+        for option in self.output_options_group.option_list:
             def process(opt):
-                if getattr(self.options, opt.dest):
-                    self.selected_output_option = opt.dest
+                default = self.defaults.get(opt.dest)
+                if getattr(self.options, opt.dest, default) is False:
+                    return
+
+                if opt.dest not in ('out', 'output_indent', 'no_color'):
+                    msg = (
+                        'The option {0} is deprecated. Please consider using '
+                        '\'--out {1}\' instead.'.format(
+                            opt.get_opt_string(),
+                            opt.dest.split('_', 1)[0]
+                        )
+                    )
+                    if version.__version_info__ >= (0, 12):
+                        # XXX: CLEAN THIS CODE WHEN 0.13 is about to come out
+                        self.error(msg)
+                    elif log.is_console_configured():
+                        logging.getLogger(__name__).warning(msg)
+                    else:
+                        sys.stdout.write('WARNING: {0}\n'.format(msg))
+
+                self.selected_output_option = opt.dest
 
             funcname = 'process_{0}'.format(option.dest)
             if not hasattr(self, funcname):
                 setattr(self, funcname, partial(process, option))
 
+    def process_output(self):
+        self.selected_output_option = self.options.output
+
     def _mixin_after_parsed(self):
         group_options_selected = filter(
-            lambda option: getattr(self.options, option.dest) and
-                           option.dest.endswith('_out'),
+            lambda option: (
+                getattr(self.options, option.dest) and
+                (option.dest.endswith('_out') or option.dest=='output')
+            ),
             self.output_options_group.option_list
         )
         if len(group_options_selected) > 1:
             self.error(
-                "The options {0} are mutually exclusive. Please only choose "
-                "one of them".format('/'.join([
+                'The options {0} are mutually exclusive. Please only choose '
+                'one of them'.format('/'.join([
                     option.get_opt_string() for
                     option in group_options_selected
                 ]))
@@ -621,7 +679,7 @@ class MasterOptionParser(OptionParser, ConfigDirMixIn, LogLevelMixIn,
 
     __metaclass__ = OptionParserMeta
 
-    description = "TODO: explain what salt-master is"
+    description = "The Salt master, used to control the Salt minions."
 
     def setup_config(self):
         return config.master_config(self.get_config_file_path('master'))
@@ -631,7 +689,7 @@ class MinionOptionParser(MasterOptionParser):
 
     __metaclass__ = OptionParserMeta
 
-    description = "TODO: explain what salt-minion is"
+    description = "The Salt minion, receives commands from a remote Salt master."
 
     def setup_config(self):
         return config.minion_config(self.get_config_file_path('minion'))
@@ -811,9 +869,9 @@ class SaltKeyOptionParser(OptionParser, ConfigDirMixIn, LogLevelMixIn,
     __metaclass__ = OptionParserMeta
     _skip_console_logging_config_ = True
 
-    description = "XXX: Add salt-key description"
+    description = 'Salt key is used to manage Salt authentication keys'
 
-    usage = "%prog [options]"
+    usage = '%prog [options]'
 
     def _mixin_setup(self):
 
@@ -994,11 +1052,12 @@ class SaltCallOptionParser(OptionParser, ConfigDirMixIn, LogLevelMixIn,
                            OutputOptionsWithTextMixIn):
     __metaclass__ = OptionParserMeta
 
-    _default_logging_level_ = "info"
+    _default_logging_level_ = 'info'
 
-    description = "XXX: Add salt-call description"
+    description = ('Salt call is used to execute module functions locally '
+                   'on a minion')
 
-    usage = "%prog [options] <function> [arguments]"
+    usage = '%prog [options] <function> [arguments]'
 
     def _mixin_setup(self):
         self.add_option(
@@ -1049,7 +1108,10 @@ class SaltCallOptionParser(OptionParser, ConfigDirMixIn, LogLevelMixIn,
             self.config['arg'] = self.args[1:]
 
     def setup_config(self):
-        return config.minion_config(self.get_config_file_path('minion'))
+        return config.minion_config(
+            self.get_config_file_path('minion'),
+            check_dns=not self.options.local
+        )
 
     def process_module_dirs(self):
         if self.options.module_dirs:

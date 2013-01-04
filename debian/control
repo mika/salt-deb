@@ -5,6 +5,7 @@ Maintainer: Michael Prokop <mika@debian.org>
 Uploaders: Christian Hofstaedtler <christian@hofstaedtler.name>, Ulrich Dangel <uli@debian.org>
 DM-Upload-Allowed: yes
 Build-Depends: debhelper (>= 9.20120410~),
+               bash-completion,
                cython,
                libzmq-dev (>= 2.1.9),
                python | python-all | python-dev | python-all-dev,

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 '''
-salt.utils.parsers
-~~~~~~~~~~~~~~~~~~
+    salt.utils.parsers
+    ~~~~~~~~~~~~~~~~~~
 
     This is were all the black magic happens on all of salt's cli tools.
 

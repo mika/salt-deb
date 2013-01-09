@@ -259,6 +259,7 @@ def create_ca(
                     ca_name
                     )
 
+
 def create_csr(
         ca_name,
         bits=2048,
@@ -369,17 +370,6 @@ def create_csr(
                     CN
                     )
 
-def create_self_signed_cert(
-        tls_dir='tls',
-        bits=2048,
-        days=365,
-        CN='localhost',
-        C='US',
-        ST='Utah',
-        L='Salt Lake City',
-        O='Salt Stack',
-        OU=None,
-        emailAddress='xyz@pdq.net'):
 
 def create_self_signed_cert(
         tls_dir='tls',
@@ -500,74 +490,6 @@ def create_self_signed_cert(
 
     return ret
 
-    if not os.path.exists('{0}/{1}/certs/'.format(_cert_base_path(), tls_dir)):
-        os.makedirs("{0}/{1}/certs/".format(_cert_base_path(), tls_dir))
-
-    if os.path.exists(
-            '{0}/{1}/certs/{2}.crt'.format(_cert_base_path(), tls_dir, CN)
-            ):
-        return 'Certificate "{0}" already exists'.format(CN)
-
-    key = OpenSSL.crypto.PKey()
-    key.generate_key(OpenSSL.crypto.TYPE_RSA, bits)
-
-    # create certificate
-    cert = OpenSSL.crypto.X509()
-    cert.set_version(3)
-
-    cert.gmtime_adj_notBefore(0)
-    cert.gmtime_adj_notAfter(int(days) * 24 * 60 * 60)
-
-    cert.get_subject().C = C
-    cert.get_subject().ST = ST
-    cert.get_subject().L = L
-    cert.get_subject().O = O
-    if OU:
-        cert.get_subject().OU = OU
-    cert.get_subject().CN = CN
-    cert.get_subject().emailAddress = emailAddress
-
-    cert.set_serial_number(_new_serial(tls_dir, CN))
-    cert.set_issuer(cert.get_subject())
-    cert.set_pubkey(key)
-    cert.sign(key, 'sha1')
-
-    # Write private key and cert
-    priv_key = open(
-            '{0}/{1}/certs/{2}.key'.format(_cert_base_path(), tls_dir, CN),
-            'w+'
-            )
-    priv_key.write(
-            OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, key)
-            )
-    priv_key.close()
-
-
-    crt = open('{0}/{1}/certs/{2}.crt'.format(
-        _cert_base_path(),
-        tls_dir,
-        CN
-        ), 'w+')
-    crt.write(
-            OpenSSL.crypto.dump_certificate(
-                OpenSSL.crypto.FILETYPE_PEM,
-                cert
-                )
-            )
-    crt.close()
-
-    _write_cert_to_database(tls_dir, cert)
-
-    ret = 'Created Private Key: {0}/{1}/certs/{2}.key. '.format(
-        _cert_base_path(),
-        tls_dir,
-        CN)
-    ret += 'Created Certificate: {0}/{1}/certs/{2}.crt.'.format(
-        _cert_base_path(),
-        tls_dir,
-        CN)
-
-    return ret
 
 def create_ca_signed_cert(ca_name, CN, days=365):
     '''

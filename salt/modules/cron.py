@@ -11,7 +11,6 @@ import salt.utils
 
 TAG = '# Lines below here are managed by Salt, do not edit\n'
 
-TAG = '# Lines below here are managed by Salt, do not edit\n'
 
 def _render_tab(lst):
     '''

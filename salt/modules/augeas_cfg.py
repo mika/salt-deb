@@ -10,13 +10,7 @@ try:
     from augeas import Augeas
     has_augeas = True
 except ImportError:
-    Augeas = False
-
-__outputter__ = {
-    'ls': 'yaml',
-    'get': 'yaml',
-    'match': 'yaml',
-}
+    pass
 
 __outputter__ = {
     'ls': 'yaml',

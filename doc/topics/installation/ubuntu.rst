@@ -26,9 +26,7 @@ may be given at a time:
 
     sudo apt-get install salt-master 
 
-Debian based systems will launch the daemons right after package install, but you 
-may need to make changes to the configuration files in /etc/salt (see the configuration
-files), such as:
+.. code-block:: bash
 
     sudo apt-get install salt-minion
 

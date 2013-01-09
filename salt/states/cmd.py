@@ -371,21 +371,6 @@ def run(name,
         The command being executed is expected to return data about executing
         a state
     '''
-    if stateful:
-        return _reinterpreted_state(
-                _delegate_to_state(
-                    'cmd.run',
-                    name,
-                    onlyif,
-                    unless,
-                    cwd,
-                    user,
-                    group,
-                    shell,
-                    env,
-                    **kwargs
-                    )
-                )
     ret = {'name': name,
            'changes': {},
            'result': False,
@@ -498,21 +483,6 @@ def script(name,
         The command being executed is expected to return data about executing
         a state
     '''
-    if stateful:
-        return _reinterpreted_state(
-                _delegate_to_state(
-                    'cmd.script',
-                    name,
-                    onlyif,
-                    unless,
-                    cwd,
-                    user,
-                    group,
-                    shell,
-                    env,
-                    **kwargs
-                    )
-                )
     ret = {'changes': {},
            'comment': '',
            'name': name,

@@ -34,36 +34,6 @@ def _list_removed(old, new):
     return pkgs
 
 
-def _parse_pkg_meta(path):
-    '''
-    Retrieve package name and version number from package metadata
-    '''
-    name = ''
-    version = ''
-    rel = ''
-    result = __salt__['cmd.run_all']('rpm -qpi "{0}"'.format(path))
-    if result['retcode'] == 0:
-        for line in result['stdout'].splitlines():
-            if not name:
-                m = re.match('^Name\s*:\s*(\S+)', line)
-                if m:
-                    name = m.group(1)
-                    continue
-            if not version:
-                m = re.match('^Version\s*:\s*(\S+)', line)
-                if m:
-                    version = m.group(1)
-                    continue
-            if not rel:
-                m = re.match('^Release\s*:\s*(\S+)', line)
-                if m:
-                    version = m.group(1)
-                    continue
-    if rel:
-        version += '-{0}'.format(rel)
-    return name, version
-
-
 def _available_versions():
     '''
     The available versions of packages

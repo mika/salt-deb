@@ -37,14 +37,6 @@ except:
     PNUM = 70
 
 
-try:
-    import console
-    width, height = console.getTerminalSize()
-    PNUM = width
-except:
-    PNUM = 70
-
-
 INTEGRATION_TEST_DIR = os.path.dirname(
     os.path.normpath(os.path.abspath(__file__))
 )

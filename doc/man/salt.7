@@ -9307,71 +9307,6 @@ CLI Example:
 .sp
 .nf
 .ft C
-salt \(aq*\(aq service.disable <service name>
-.ft P
-.fi
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.freebsdservice.disabled(name)
-Return True if the named servioce is enabled, false otherwise
-.sp
-CLI Example:
-.sp
-.nf
-.ft C
-salt \(aq*\(aq service.disabled <service name>
-.ft P
-.fi
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.freebsdservice.enable(name, config=\(aq/etc/rc.conf\(aq, **kwargs)
-Enable the named service to start at boot
-.sp
-CLI Example:
-.sp
-.nf
-.ft C
-salt \(aq*\(aq service.enable <service name>
-.ft P
-.fi
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.freebsdservice.reload(name)
-Restart the named service
-.sp
-CLI Example:
-.sp
-.nf
-.ft C
-salt \(aq*\(aq service.reload <service name>
-.ft P
-.fi
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.freebsdservice.restart(name)
-Restart the named service
-.sp
-CLI Example:
-.sp
-.nf
-.ft C
-salt \(aq*\(aq service.enabled <service name>
-.ft P
-.fi
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.freebsdservice.get_all()
-Return a list of all available services
-.sp
-CLI Example:
-.sp
-.nf
-.ft C
 salt \(aq*\(aq service.get_all
 .ft P
 .fi
@@ -10702,14 +10637,7 @@ method of creating rules would be irritating at best, and we
 already have a parser that can handle it.
 .UNINDENT
 .sp
-Only intended to be used within Keystone\-enabled modules
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.keystone.ec2_credentials_get(id=None, name=None, access=None)
-Return ec2_credentials for a user (keystone ec2\-credentials\-get)
-.sp
-CLI Examples:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -10771,7 +10699,7 @@ salt \(aq*\(aq iptables.get_policy filter INPUT
 .B salt.modules.iptables.get_rules()
 Return a data structure of the current, in\-memory rules
 .sp
-CLI Examples:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -10798,7 +10726,7 @@ salt \(aq*\(aq iptables.get_saved_policy filter INPUT conf_file=/etc/iptables.sa
 .B salt.modules.iptables.get_saved_rules(conf_file=None)
 Return a data structure of the rules in the conf file
 .sp
-CLI Examples:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -10832,7 +10760,7 @@ salt \(aq*\(aq iptables.insert filter \(aqINPUT 3 \-m state \-\-state RELATED,ES
 .B salt.modules.iptables.set_policy(table=\(aqfilter\(aq, chain=None, policy=None)
 Set the current policy for the specified table/chain
 .sp
-CLI Examples:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -10874,7 +10802,7 @@ salt \(aq*\(aq keyboard.get_sys
 .B salt.modules.keyboard.get_x()
 Get current X keyboard setting
 .sp
-CLI Examples:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -10887,7 +10815,7 @@ salt \(aq*\(aq keyboard.get_x
 .B salt.modules.keyboard.set_sys(layout)
 Set current system keyboard setting
 .sp
-CLI Examples:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -10976,7 +10904,7 @@ salt \(aq*\(aq keystone.ec2_credentials_list name=jack
 .B salt.modules.keystone.endpoint_get(service)
 Return a specific endpoint (keystone endpoint\-get)
 .sp
-CLI Examples:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -10989,7 +10917,7 @@ salt \(aq*\(aq keystone.endpoint_get ec2
 .B salt.modules.keystone.endpoint_list()
 Return a list of available endpoints (keystone endpoints\-list)
 .sp
-CLI Examples:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -10997,9 +10925,6 @@ salt \(aq*\(aq keystone.endpoint_list
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.kmod
-.sp
-Module to manage Linux kernel modules
 .INDENT 0.0
 .TP
 .B salt.modules.keystone.role_get(id=None, name=None)
@@ -11326,7 +11251,7 @@ salt \(aq*\(aq hyper.freemem
 .B salt.modules.kvm_hyper.get_conf(name)
 Returns the xml for a given vm
 .sp
-Module to provide LDAP commands via salt.
+CLI Example:
 .sp
 .nf
 .ft C
@@ -11339,9 +11264,7 @@ salt \(aq*\(aq hyper.get_conf <vm name>
 .B salt.modules.kvm_hyper.get_disks(name)
 Return the disks of a named virt
 .sp
-In order to connect to LDAP, certain configuration is required
-in the minion config on the LDAP server.
-The minimum configuration items that must be set are:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -11354,7 +11277,7 @@ salt \(aq*\(aq hyper.get_disks <vm name>
 .B salt.modules.kvm_hyper.halt(name)
 Hard power down a virtual machine
 .sp
-If your LDAP server requires authentication then you must also set:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -11367,7 +11290,7 @@ salt \(aq*\(aq hyper.halt webserver
 .B salt.modules.kvm_hyper.hyper_info()
 Return a dict with information about this hypervisor
 .sp
-In addition, the following optional values may be set:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -11380,12 +11303,7 @@ salt \(aq*\(aq hyper.hyper_info
 .B salt.modules.kvm_hyper.hyper_type()
 Return that type of hypervisor this is
 .sp
-WARNING:
-At the moment this module only recommends connection to LDAP services
-listening on \(aqlocalhost\(aq.  This is deliberate to avoid the potentially
-dangerous situation of multiple minions sending identical update commands to
-the same LDAP server.  It\(aqs easy enough to override this behaviour,
-but badness may ensue \- you have been warned.
+CLI Example:
 .sp
 .nf
 .ft C
@@ -11411,7 +11329,7 @@ salt \(aq*\(aq hyper.init webserver 2 2048 salt://fedora/f16.img:virt /srv/vm/im
 .B salt.modules.kvm_hyper.list_virts()
 Return a list of virtual machine names on the minion
 .sp
-CLI Examples:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -11446,9 +11364,6 @@ salt \(aq*\(aq hyper.purge webserver
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.linux_sysctl
-.sp
-Module for viewing and modifying sysctl parameters
 .INDENT 0.0
 .TP
 .B salt.modules.kvm_hyper.resume(name)
@@ -11557,7 +11472,7 @@ salt \(aq*\(aq service.restart <service name>
 .B salt.modules.launchctl.start(job_label, runas=None)
 Start the specified service
 .sp
-Module to provide MongoDB functionality to Salt
+CLI Example:
 .sp
 .nf
 .ft C
@@ -11565,10 +11480,6 @@ salt \(aq*\(aq service.start <service name>
 .ft P
 .fi
 .UNINDENT
-.UNINDENT
-.sp
-This data can also be passed into pillar. Options passed into opts will
-overwrite options passed into pillar.
 .INDENT 0.0
 .TP
 .B salt.modules.launchctl.status(job_label, runas=None)
@@ -11626,11 +11537,6 @@ ldap.binddn: admin
 ldap.bindpw: password
 .ft P
 .fi
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.moosefs.fileinfo(path)
-Return information on a file located on the Moose
 .sp
 In addition, the following optional values may be set:
 .sp
@@ -11791,29 +11697,14 @@ Salt module to manage RAID arrays with mdadm
 .B salt.modules.mdadm.detail(device=\(aq/dev/md0\(aq)
 Show detail for a specified RAID device
 .sp
-REQUIREMENT 1:
-.sp
-In order to connect to MySQL, certain configuration is required
-in /etc/salt/minion on the relevant minions. Some sample configs
-might look like:
+CLI Example:
 .sp
 .nf
 .ft C
 salt \(aq*\(aq raid.detail \(aq/dev/md0\(aq
 .ft P
 .fi
-.sp
-You can also use a defaults file:
-.sp
-.nf
-.ft C
-mysql.default_file: \(aq/etc/mysql/debian.cnf\(aq
-.ft P
-.fi
-.sp
-REQUIREMENT 2:
-.sp
-Required python modules: MySQLdb
+.UNINDENT
 .INDENT 0.0
 .TP
 .B salt.modules.mdadm.list()
@@ -12009,7 +11900,7 @@ salt \(aq*\(aq mount.fstab
 .B salt.modules.mount.is_fuse_exec(cmd)
 Returns true if the command passed is a fuse mountable application.
 .sp
-CLI Examples:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -12049,7 +11940,7 @@ salt \(aq*\(aq mount.remount /mnt/foo /dev/sdz1 True
 .B salt.modules.mount.rm_fstab(name, config=\(aq/etc/fstab\(aq)
 Remove the mount point from the fstab
 .sp
-CLI Examples:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -12110,11 +12001,6 @@ mysql.db: \(aqmysql\(aq
 mysql.unix_socket: \(aq/tmp/mysql.sock\(aq
 .ft P
 .fi
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.mysql.user_info(user, host=\(aqlocalhost\(aq)
-Get full info on a MySQL user
 .sp
 You can also use a defaults file:
 .sp
@@ -12234,9 +12120,6 @@ salt \(aq*\(aq mysql.db_tables \(aqdatabase\(aq
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.nginx
-.sp
-Support for nginx
 .INDENT 0.0
 .TP
 .B salt.modules.mysql.free_slave()
@@ -12349,17 +12232,6 @@ salt \(aq*\(aq mysql.grant_revoke \(aqSELECT,INSERT,UPDATE\(aq \(aqdatabase.*\(a
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.nova
-.sp
-Module for handling openstack nova calls.
-.sp
-This module is not usable until the user, password, tenant and auth url are
-specified either in a pillar or in the minion\(aqs config file. For example:
-.sp
-keystone.user: admin
-keystone.password: verybadpass
-keystone.tenant: admin
-keystone.auth_url: \(aq\fI\%http://127.0.0.1:5000/v2.0/\fP\(aq
 .INDENT 0.0
 .TP
 .B salt.modules.mysql.processlist()
@@ -12450,7 +12322,7 @@ salt \(aq*\(aq mysql.slave_lag
 Return the status of a MySQL server using the output
 from the \fBSHOW STATUS\fP query.
 .sp
-CLI Examples:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -12514,9 +12386,6 @@ salt \(aq*\(aq mysql.user_grants \(aqfrank\(aq \(aqlocalhost\(aq
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.nzbget
-.sp
-Support for nzbget
 .INDENT 0.0
 .TP
 .B salt.modules.mysql.user_info(user, host=\(aqlocalhost\(aq)
@@ -12760,9 +12629,6 @@ salt \(aq*\(aq nova.flavor_list
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.pw_group
-.sp
-Manage groups on FreeBSD
 .INDENT 0.0
 .TP
 .B salt.modules.nova.image_list(name=None)
@@ -13000,11 +12866,6 @@ salt \(aq*\(aq pkg.install sources=\(aq[{"<pkg name>": "salt://pkgs/<pkg filenam
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.rabbitmq
-.sp
-Module to provide RabbitMQ compatibility to Salt.
-Todo: A lot, need to add cluster support, logging, and minion configuration
-data.
 .INDENT 0.0
 .TP
 .B salt.modules.openbsdpkg.list_pkgs()
@@ -13102,7 +12963,7 @@ salt \(aq*\(aq service.start <service name>
 Return the status for a service, returns a bool whether the service is
 running.
 .sp
-Example:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -13281,10 +13142,6 @@ salt \(aq*\(aq pkg.list_upgrades
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.ret
-.sp
-Module to integrate with the returner system and retrieve data sent to a salt
-returner.
 .INDENT 0.0
 .TP
 .B salt.modules.pacman.purge(name)
@@ -13320,9 +13177,6 @@ salt \(aq*\(aq pkg.refresh_db
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.rh_ip
-.sp
-The networking module for RHEL/Fedora based distros
 .INDENT 0.0
 .TP
 .B salt.modules.pacman.remove(name)
@@ -13494,11 +13348,6 @@ salt \(aq*\(aq partition.mklabel /dev/sda msdos
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.rh_service
-.sp
-Service support for classic Red Hat type systems. This interface uses the
-service command (so it is compatible with upstart systems) and the chkconfig
-command.
 .INDENT 0.0
 .TP
 .B salt.modules.parted.mkpart(device, part_type, fs_type, start, end)
@@ -16198,185 +16047,6 @@ salt \(aq*\(aq saltutil.sync_renderers
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.rvm
-.sp
-Manage ruby installations and gemsets with RVM, the Ruby Version Manager.
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.do(ruby, command, runas=None)
-Execute a command in an RVM controlled environment.
-.INDENT 7.0
-.TP
-.B ruby:
-The ruby to use.
-.TP
-.B command:
-The command to execute.
-.TP
-.B runas
-None
-The user to run rvm as.
-.UNINDENT
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.gemset_copy(source, destination, runas=None)
-Copy all gems from one gemset to another.
-.INDENT 7.0
-.TP
-.B source
-The name of the gemset to copy, complete with ruby version.
-.TP
-.B destination
-The destination gemset.
-.TP
-.B runas
-None
-The user to run rvm as.
-.UNINDENT
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.gemset_create(ruby, gemset, runas=None)
-Creates a gemset.
-.INDENT 7.0
-.TP
-.B ruby
-The ruby version to create the gemset for.
-.TP
-.B gemset
-The name of the gemset to create.
-.TP
-.B runas
-None
-The user to run rvm as.
-.UNINDENT
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.gemset_delete(ruby, gemset, runas=None)
-Deletes a gemset.
-.INDENT 7.0
-.TP
-.B ruby
-The ruby version the gemset belongs to.
-.TP
-.B gemset
-The gemset to delete.
-.TP
-.B runas
-None
-The user to run rvm as.
-.UNINDENT
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.gemset_empty(ruby, gemset, runas=None)
-Remove all gems from a gemset.
-.INDENT 7.0
-.TP
-.B ruby
-The ruby version the gemset belongs to.
-.TP
-.B gemset
-The gemset to empty.
-.TP
-.B runas
-None
-The user to run rvm as.
-.UNINDENT
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.gemset_list(ruby=\(aqdefault\(aq, runas=None)
-List all gemsets for the given ruby.
-.INDENT 7.0
-.TP
-.B ruby
-default
-The ruby version to list the gemsets for
-.TP
-.B runas
-None
-The user to run rvm as.
-.UNINDENT
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.gemset_list_all(runas=None)
-List all gemsets for all installed rubies.
-.sp
-Note that you must have set a default ruby before this can work.
-.INDENT 7.0
-.TP
-.B runas
-None
-The user to run rvm as.
-.UNINDENT
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.get(version=\(aqstable\(aq, runas=None)
-Update RVM.
-.INDENT 7.0
-.TP
-.B version
-stable
-Which version of RVM to install, e.g. stable or head.
-.TP
-.B ruby
-The version of ruby to reinstall.
-.UNINDENT
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.install()
-Install RVM system wide.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.install_ruby(ruby, runas=None)
-Install a ruby implementation.
-.INDENT 7.0
-.TP
-.B ruby
-The version of ruby to install.
-.TP
-.B runas
-None
-The user to run rvm as.
-.UNINDENT
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.is_installed()
-Check if RVM is installed.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.list(runas=None)
-List all rvm installed rubies.
-.INDENT 7.0
-.TP
-.B runas
-None
-The user to run rvm as.
-.UNINDENT
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.modules.rvm.reinstall_ruby(ruby, runas=None)
-Reinstall a ruby implementation.
-.INDENT 7.0
-.TP
-.B ruby
-The version of ruby to reinstall.
-.TP
-.B runas
-None
-The user to run rvm as.
-.UNINDENT
-.UNINDENT
 .INDENT 0.0
 .TP
 .B salt.modules.saltutil.sync_returners(env=None)
@@ -16422,10 +16092,6 @@ salt \(aq*\(aq saltutil.term_job <job id>
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.saltutil
-.sp
-The Saltutil module is used to manage the state of the salt minion itself. It is
-used to manage minion modules as well as automate updates to the salt minion
 .INDENT 0.0
 .TP
 .B salt.modules.saltutil.update(version=None)
@@ -16621,7 +16287,7 @@ salt \(aq*\(aq shadow.info root
 sets the value for the date the password was last changed to the epoch
 (January 1, 1970). See man chage.
 .sp
-This feature requires the minion to be running a bdist_esky build.
+CLI Example:
 .sp
 .nf
 .ft C
@@ -16643,9 +16309,6 @@ salt \(aq*\(aq shadow.set_inactdays username 7
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.selinux
-.sp
-Execute calls on selinux
 .INDENT 0.0
 .TP
 .B salt.modules.shadow.set_maxdays(name, maxdays)
@@ -16715,7 +16378,7 @@ CLI Example:
 .sp
 .nf
 .ft C
-salt \(aq*\(aq selinux.setsebool virt_use_usb off
+salt \(aq*\(aq service.disable <service name>
 .ft P
 .fi
 .UNINDENT
@@ -16728,14 +16391,10 @@ CLI Example:
 .sp
 .nf
 .ft C
-salt \(aq*\(aq selinux.setsebools \(aq{virt_use_usb: on, squid_use_tproxy: off}\(aq
+salt \(aq*\(aq service.disabled <service name>
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.service
-.sp
-The default service module, if not otherwise specified salt will fall back
-to this basic module
 .INDENT 0.0
 .TP
 .B salt.modules.smf.enable(name, **kwargs)
@@ -16745,7 +16404,7 @@ CLI Example:
 .sp
 .nf
 .ft C
-salt \(aq*\(aq service.reload <service name>
+salt \(aq*\(aq service.enable <service name>
 .ft P
 .fi
 .UNINDENT
@@ -16758,7 +16417,7 @@ CLI Example:
 .sp
 .nf
 .ft C
-salt \(aq*\(aq service.restart <service name>
+salt \(aq*\(aq service.enabled <service name>
 .ft P
 .fi
 .UNINDENT
@@ -16771,7 +16430,7 @@ CLI Example:
 .sp
 .nf
 .ft C
-salt \(aq*\(aq service.start <service name>
+salt \(aq*\(aq service.get_all
 .ft P
 .fi
 .UNINDENT
@@ -16784,7 +16443,7 @@ CLI Example:
 .sp
 .nf
 .ft C
-salt \(aq*\(aq service.status <service name> [service signature]
+salt \(aq*\(aq service.get_disabled
 .ft P
 .fi
 .UNINDENT
@@ -16797,13 +16456,10 @@ CLI Example:
 .sp
 .nf
 .ft C
-salt \(aq*\(aq service.stop <service name>
+salt \(aq*\(aq service.get_enabled
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.shadow
-.sp
-Manage the shadow file
 .INDENT 0.0
 .TP
 .B salt.modules.smf.restart(name)
@@ -16813,7 +16469,7 @@ CLI Example:
 .sp
 .nf
 .ft C
-salt \(aq*\(aq shadow.info root
+salt \(aq*\(aq service.restart <service name>
 .ft P
 .fi
 .UNINDENT
@@ -16826,7 +16482,7 @@ CLI Example:
 .sp
 .nf
 .ft C
-salt \(aq*\(aq shadow.set_date username 0
+salt \(aq*\(aq service.start <service name>
 .ft P
 .fi
 .UNINDENT
@@ -16840,7 +16496,7 @@ CLI Example:
 .sp
 .nf
 .ft C
-salt \(aq*\(aq shadow.set_inactdays username 7
+salt \(aq*\(aq service.status <service name>
 .ft P
 .fi
 .UNINDENT
@@ -16853,7 +16509,7 @@ CLI Example:
 .sp
 .nf
 .ft C
-salt \(aq*\(aq shadow.set_maxdays username 90
+salt \(aq*\(aq service.stop <service name>
 .ft P
 .fi
 .UNINDENT
@@ -17228,9 +16884,6 @@ salt \(aq*\(aq shadow.set_mindays username 7
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.solaris_group
-.sp
-Manage groups on Solaris
 .INDENT 0.0
 .TP
 .B salt.modules.solaris_shadow.set_password(name, password)
@@ -17289,9 +16942,6 @@ salt \(aq*\(aq user.chfullname foo "Foo Bar"
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.solarispkg
-.sp
-Package support for Solaris
 .INDENT 0.0
 .TP
 .B salt.modules.solaris_user.chgid(name, gid)
@@ -17311,8 +16961,7 @@ salt \(aq*\(aq user.chgid foo 4376
 Change the groups this user belongs to, add append to append the specified
 groups
 .sp
-CLI Example \- Providing your own adminfile when calling the module
-directly:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -17326,7 +16975,7 @@ salt \(aq*\(aq user.chgroups foo wheel,root True
 Change the home directory of the user, pass true for persist to copy files
 to the new home dir
 .sp
-CLI Example \- Providing your own adminfile when using states:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -17391,8 +17040,7 @@ salt \(aq*\(aq user.chuid foo 4376
 .B salt.modules.solaris_user.chworkphone(name, workphone)
 Change the user\(aqs Work Phone
 .sp
-By default salt automatically provides an adminfile, to automate package
-removal, with these options set:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -17405,13 +17053,7 @@ salt \(aq*\(aq user.chworkphone foo "7735550123"
 .B salt.modules.solaris_user.delete(name, remove=False, force=False)
 Remove a user from the minion
 .sp
-You can override any of these options in two ways. First you can optionally
-pass any of the options as a kwarg to the module/state to override the
-default value or you can optionally pass the \(aqadmin_source\(aq option
-providing your own adminfile to the minions.
-.sp
-Note: You can find all of the possible options to provide to the adminfile
-by reading the admin man page:
+CLI Example:
 .sp
 .nf
 .ft C
@@ -17445,9 +17087,6 @@ salt \(aq*\(aq user.info root
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.solaris_shadow
-.sp
-Manage the shadow file
 .INDENT 0.0
 .TP
 .B salt.modules.solaris_user.list_groups(name)
@@ -17617,9 +17256,6 @@ salt \(aq*\(aq solr.backup music
 .ft P
 .fi
 .UNINDENT
-.SS salt.modules.solaris_user
-.sp
-Manage users with the useradd command
 .INDENT 0.0
 .TP
 .B salt.modules.solr.core_status(host=None, core_name=None)
@@ -22127,8 +21763,6 @@ compatibile and uses the native yum Python interface instead of the CLI
 interface.
 .sp
 Support for YUM
-.sp
-Required python modules: yum, rpm, rpmUtils
 .INDENT 0.0
 .TP
 .B depends
@@ -27127,22 +26761,23 @@ The name of the package to be removed
 .SS salt.states.postgres_database
 .SS Management of PostgreSQL databases (schemas).
 .sp
-The postgres_users module is used to create and manage Postgres users.
+The postgres_database module is used to create and manage Postgres databases.
+Databases can be set as either absent or present
 .sp
 .nf
 .ft C
 frank:
-  postgres_user.present
+  postgres_database.present
 .ft P
 .fi
 .INDENT 0.0
 .TP
-.B salt.states.postgres_user.absent(name, runas=None)
-Ensure that the named user is absent
+.B salt.states.postgres_database.absent(name, runas=None)
+Ensure that the named database is absent
 .INDENT 7.0
 .TP
 .B name
-The username of the user to remove
+The name of the database to remove
 .TP
 .B runas
 System user all operation should be preformed on behalf of
@@ -27150,65 +26785,19 @@ System user all operation should be preformed on behalf of
 .UNINDENT
 .INDENT 0.0
 .TP
-.B salt.states.postgres_user.present(name, createdb=False, createuser=False, encrypted=False, superuser=False, password=None, runas=None)
-Ensure that the named user is present with the specified privileges
+.B salt.states.postgres_database.present(name, tablespace=None, encoding=None, locale=None, lc_collate=None, lc_ctype=None, owner=None, template=None, runas=None)
+Ensure that the named database is present with the specified properties.
+For more information about all of these options see man createdb(1)
 .INDENT 7.0
 .TP
 .B name
-The name of the user to manage
+The name of the database to manage
 .TP
-.B createdb
-Is the user allowed to create databases?
+.B tablespace
+Default tablespace for the database
 .TP
-.B createuser
-Is the user allowed to create other users?
-.TP
-.B encrypted
-Shold the password be encrypted in the system catalog?
-.TP
-.B superuser
-Shold the new user be a "superuser"
-.TP
-.B password
-The user\(aqs pasword
-.TP
-.B runas
-System user all operation should be preformed on behalf of
-.UNINDENT
-.UNINDENT
-.SS salt.states.rabbitmq_user
-.sp
-Manage RabbitMQ Users.
-.sp
-.nf
-.ft C
-rabbit_user:
-    rabbitmq_user.present:
-        \- password: password
-        \- force: True
-.ft P
-.fi
-.INDENT 0.0
-.TP
-.B salt.states.rabbitmq_user.absent(name, runas=None)
-Ensure the named user is absent
-.INDENT 7.0
-.TP
-.B name
-The name of the user to remove
-.TP
-.B runas
-User to run the command
-.UNINDENT
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.states.rabbitmq_user.present(name, password=None, force=False, runas=None)
-Ensure the RabbitMQ user exists.
-.INDENT 7.0
-.TP
-.B name
-User name
+.B encoding
+The character encoding scheme to be used in this database
 .TP
 .B locale
 The locale to be used in this database
@@ -27808,22 +27397,6 @@ directory, defaults to ".ssh/known_hosts"
 True
 Hash all hostnames and addresses in the output.
 .UNINDENT
-.UNINDENT
-.SS salt.states.stateconf
-.SS Stateconf System
-.sp
-The stateconf system is inteded for use only with the stateconf renderer. This
-State module presents the set function. This function does not execute any
-functionality, but is used to interact with the stateconf renderer.
-.INDENT 0.0
-.TP
-.B salt.states.stateconf.context(name, **kws)
-No\-op state to support state config via the stateconf renderer.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.states.stateconf.set(name, **kws)
-No\-op state to support state config via the stateconf renderer.
 .UNINDENT
 .SS salt.states.stateconf
 .SS Stateconf System
@@ -28815,398 +28388,6 @@ The final result set is merged with the pillar data.
 Execute LDAP searches and return the aggregated data
 .UNINDENT
 .SH MASTER TOPS
-.sp
-Salt includes a number of built\-in subsystems to generate top file data, they
-are listed listed at
-\fIall\-salt.tops\fP.
-.sp
-The source for the built\-in Salt master tops can be found here:
-\fI\%https://github.com/saltstack/salt/blob/develop/salt/tops\fP
-.SH FULL LIST OF BUILTIN MASTER TOPS MODULES
-.TS
-center;
-|l|l|.
-_
-T{
-\fBext_nodes\fP
-T}	T{
-External Nodes Classifier
-T}
-_
-.TE
-.SS salt.tops.ext_nodes
-.SS External Nodes Classifier
-.sp
-The External Nodes Classifier is a master tops subsystem used to hook into
-systems used to provide mapping information used by major configuration
-management systems. One of the most common external nodes classification
-system is provided by Cobbler and is called \fBcobbler\-ext\-nodes\fP.
-.sp
-The cobbler\-ext\-nodes command can be used with this configuration:
-.sp
-.nf
-.ft C
-master_tops:
-  ext_nodes: cobbler\-ext\-nodes
-.ft P
-.fi
-.sp
-It is noteworthy that the Salt system does not directly ingest the data
-sent from the \fBcobbler\-ext\-nodes\fP command, but converts the data into
-information that is used by a Salt top file.
-.INDENT 0.0
-.TP
-.B salt.tops.ext_nodes.top(**kwargs)
-Run the command configured
-.UNINDENT
-.SH SALT RUNNERS
-.IP "See also"
-.sp
-\fIThe full list of runners\fP
-.RE
-.sp
-Salt runners are convenience applications executed with the salt\-run command.
-.sp
-A Salt runner can be a simple client call, or a complex application.
-.sp
-The use for a Salt runner is to build a frontend hook for running sets of
-commands via Salt or creating special formatted output.
-.SS Writing Salt Runners
-.sp
-Salt runners can be easily written, the work in a similar way to Salt modules
-except they run on the server side.
-.sp
-A runner is a Python module that contains functions, each public function is
-a runner that can be executed via the \fIsalt\-run\fP command.
-.sp
-If a Python module named test.py is created in the runners directory and
-contains a function called \fBfoo\fP then the function could be called with:
-.sp
-.nf
-.ft C
-# salt\-run test.foo
-.ft P
-.fi
-.SS Examples
-.sp
-The best examples of runners can be found in the Salt source:
-.sp
-\fI\%https://github.com/saltstack/salt/blob/develop/salt/runners\fP
-.sp
-A simple runner that returns a well\-formatted list of the minions that are
-responding to Salt calls would look like this:
-.sp
-.nf
-.ft C
-# Import salt modules
-import salt.client
-
-def up():
-    \(aq\(aq\(aq
-    Print a list of all of the minions that are up
-    \(aq\(aq\(aq
-    client = salt.client.LocalClient(__opts__[\(aqconfig\(aq])
-    minions = client.cmd(\(aq*\(aq, \(aqtest.ping\(aq, timeout=1)
-    for minion in sorted(minions):
-        print minion
-.ft P
-.fi
-.SH FULL LIST OF RUNNER MODULES
-.TS
-center;
-|l|l|.
-_
-T{
-\fBjobs\fP
-T}	T{
-A convenience system to manage jobs, both active and already run
-T}
-_
-T{
-\fBlaunchd\fP
-T}	T{
-T}
-_
-T{
-\fBmanage\fP
-T}	T{
-General management functions for salt, tools like seeing what hosts are up
-T}
-_
-T{
-\fBnetwork\fP
-T}	T{
-Network tools to run from the Master
-T}
-_
-.TE
-.SS salt.runners.jobs
-.sp
-A convenience system to manage jobs, both active and already run
-.INDENT 0.0
-.TP
-.B salt.runners.jobs.active()
-Return a report on all actively running jobs from a job id centric
-perspective
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.runners.jobs.list_jobs()
-List all detectable jobs and associated functions
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.runners.jobs.lookup_jid(jid, ext_source=None)
-Return the printout from a previously executed job
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.runners.jobs.print_job(job_id)
-Print job available details, including return data.
-.UNINDENT
-.SS salt.runners.launchd
-.INDENT 0.0
-.TP
-.B salt.runners.launchd.write_launchd_plist(program)
-Write a launchd plist for managing salt\-master or salt\-minion
-.UNINDENT
-.SS salt.runners.manage
-.sp
-General management functions for salt, tools like seeing what hosts are up
-and what hosts are down
-.INDENT 0.0
-.TP
-.B salt.runners.manage.down()
-Print a list of all the down or unresponsive salt minions
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.runners.manage.up()
-Print a list of all of the minions that are up
-.UNINDENT
-.SS salt.runners.network
-.sp
-Network tools to run from the Master
-.INDENT 0.0
-.TP
-.B salt.runners.network.wol(mac, bcast=\(aq255.255.255.255\(aq, destport=9)
-Send a "Magic Packet" to wake up a Minion
-.sp
-CLI Example:
-.sp
-.nf
-.ft C
-salt\-run network.wol 08\-00\-27\-13\-69\-77
-salt\-run network.wol 080027136977 255.255.255.255 7
-salt\-run network.wol 08:00:27:13:69:77 255.255.255.255 7
-.ft P
-.fi
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.runners.network.wollist(maclist, bcast=\(aq255.255.255.255\(aq, destport=9)
-Send a "Magic Packet" to wake up a list of Minions.
-This list must contain one MAC hardware address per line
-.sp
-CLI Example:
-.sp
-.nf
-.ft C
-salt\-run \(aq/path/to/maclist\(aq
-salt\-run \(aq/path/to/maclist\(aq 255.255.255.255 7
-salt\-run \(aq/path/to/maclist\(aq 255.255.255.255 7
-.ft P
-.fi
-.UNINDENT
-.SH FULL LIST OF BUILTIN WHEEL MODULES
-.TS
-center;
-|l|l|.
-_
-T{
-\fBconfig\fP
-T}	T{
-Manage the master configuration file
-T}
-_
-T{
-\fBfile_roots\fP
-T}	T{
-Read in files from the file_root and save files to the file root
-T}
-_
-T{
-\fBkey\fP
-T}	T{
-Wheel system wrapper for key system
-T}
-_
-.TE
-.SS salt.wheel.config
-.sp
-Manage the master configuration file
-.INDENT 0.0
-.TP
-.B salt.wheel.config.apply(key, value)
-Set a single key
-.IP Note
-This will strip comments from your config file
-.RE
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.wheel.config.values()
-Return the raw values of the config file
-.UNINDENT
-.SS salt.wheel.file_roots
-.sp
-Read in files from the file_root and save files to the file root
-.INDENT 0.0
-.TP
-.B salt.wheel.file_roots.find(path, env=\(aqbase\(aq)
-Return a dict of the files located with the given path and environment
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.wheel.file_roots.list_env(env=\(aqbase\(aq)
-Return all of the file paths found in an environment
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.wheel.file_roots.list_roots()
-Return all of the files names in all available environments
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.wheel.file_roots.read(path, env=\(aqbase\(aq)
-Read the contents of a text file, if the file is binary then
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.wheel.file_roots.write(data, path, env=\(aqbase\(aq, index=0)
-Write the named file, by default the first file found is written, but the
-index of the file can be specified to write to a lower priority file root
-.UNINDENT
-.SS salt.wheel.key
-.sp
-Wheel system wrapper for key system
-.INDENT 0.0
-.TP
-.B salt.wheel.key.accept(match)
-Accept keys based on a glob match
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.wheel.key.delete(match)
-Delete keys based on a glob match
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.wheel.key.finger(match)
-Return the matching key fingerprints
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.wheel.key.key_str(match)
-Return the key strings
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.wheel.key.list_all()
-List the keys under a named status
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.wheel.key.reject(match)
-Delete keys based on a glob match
-.UNINDENT
-.SH FULL LIST OF BUILTIN OUTPUT MODULES
-.TS
-center;
-|l|l|.
-_
-T{
-\fBhighstate\fP
-T}	T{
-The return data from the Highstate command is a standard data structure
-T}
-_
-T{
-\fBjson_out\fP
-T}	T{
-The JSON output module converts the return data into JSON.
-T}
-_
-T{
-\fBkey\fP
-T}	T{
-Salt Key makes use of the outputter system to format information sent to the
-T}
-_
-T{
-\fBpprint_out\fP
-T}	T{
-The python pretty print system is the default outputter.
-T}
-_
-T{
-\fBraw\fP
-T}	T{
-The raw outputter outputs the data via the python print function and is shown in a raw state.
-T}
-_
-T{
-\fBtxt\fP
-T}	T{
-The txt outputter has been developed to make the output from shell
-T}
-_
-T{
-\fByaml_out\fP
-T}	T{
-Output data in YAML, this outputter defaults to printing in YAML block mode
-T}
-_
-.TE
-.SS salt.output.highstate
-.sp
-The return data from the Highstate command is a standard data structure
-which is parsed by the highstate outputter to deliver a clean and readable
-set of information about the HighState run on minions.
-.sp
-Two configurations can be set to modify the highstate outputter. These values
-can be set in the master config to change the output of the \fBsalt\fP command or
-set in the minion config to change the output of the \fBsalt\-call\fP command.
-.INDENT 0.0
-.TP
-.B state_verbose:
-By default \fIstate_verbose\fP is set to \fITrue\fP, setting this to \fIFalse\fP will
-instruct the highstate outputter to omit displaying anything in green, this
-means that nothing with a result of True and no chnages will not be printed
-.TP
-.B state_output:
-The highstate outputter has two output modes, \fIfull\fP and \fIterse\fP. The
-default is set to full, which will display many lines of detailed
-information for each executed chunk. If the \fIstate_output\fP option is
-set to \fIterse\fP then the output is greatly simplified and shown in only one
-line
-.UNINDENT
-.INDENT 0.0
-.TP
-.B salt.output.highstate.output(data)
-The HighState Outputter is only meant to
-be used with the state.highstate function, or a function that returns
-highstate return data.
-.UNINDENT
-.SS salt.output.json_out
-.sp
-The JSON output module converts the return data into JSON.
-.INDENT 0.0
-.TP
-.B salt.pillar.pillar_ldap.ext_pillar(pillar, config_file)
-Execute LDAP searches and return the aggregated data
-.UNINDENT
-.SS salt.output.key
 .sp
 Salt includes a number of built\-in subsystems to generate top file data, they
 are listed listed at

@@ -4,8 +4,6 @@ Support for YUM
 
 # Import python libs
 import logging
-import os
-import re
 from collections import namedtuple
 
 log = logging.getLogger(__name__)
@@ -62,38 +60,6 @@ def _list_removed(old, new):
         if pkg not in new:
             pkgs.append(pkg)
     return pkgs
-
-
-def _parse_pkg_meta(path):
-    '''
-    Retrieve package name and version number from package metadata
-    '''
-    name = ''
-    version = ''
-    rel = ''
-    result = __salt__['cmd.run_all']('rpm -qpi "{0}"'.format(path))
-    if result['retcode'] == 0:
-        for line in result['stdout'].split('\n'):
-            # Older versions of rpm command produce two-column output when run
-            # with -qpi. So, regexes should not look for EOL after capture
-            # group.
-            if not name:
-                m = re.match('^Name\s*:\s*(\S+)',line)
-                if m:
-                    name = m.group(1)
-                    continue
-            if not version:
-                m = re.match('^Version\s*:\s*(\S+)',line)
-                if m:
-                    version = m.group(1)
-                    continue
-            if not rel:
-                m = re.match('^Release\s*:\s*(\S+)',line)
-                if m:
-                    version = m.group(1)
-                    continue
-    if rel: version += '-{0}'.format(rel)
-    return name,version
 
 
 def available_version(name):

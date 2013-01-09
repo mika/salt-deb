@@ -41,45 +41,6 @@ def recv(files, dest):
 
     return ret
 
-def _render_filenames(path, dest, env, template):
-    if not template:
-        return (path, dest)
-
-    # render the path as a template using path_template_engine as the engine
-    if template not in salt.utils.templates.template_registry:
-        raise CommandExecutionError('Attempted to render file paths with unavailable engine '
-                  '{0}'.format(template))
-
-    kwargs = {}
-    kwargs['salt'] = __salt__
-    kwargs['pillar'] = __pillar__
-    kwargs['grains'] = __grains__
-    kwargs['opts'] = __opts__
-    kwargs['env'] = env
-
-    def _render(contents):
-        # write out path to temp file
-        tmp_path_fn = salt.utils.mkstemp()
-        with open(tmp_path_fn, 'w+') as fp_:
-            fp_.write(contents)
-        data = salt.utils.templates.template_registry[template](
-            tmp_path_fn,
-            to_str=True,
-            **kwargs
-        )
-        salt.utils.safe_rm(tmp_path_fn)
-        if not data['result']:
-            # Failed to render the template
-            raise CommandExecutionError('Failed to render file path with error: {0}'.format(
-                data['data']
-            ))
-        else:
-            return data['data']
-
-    path = _render(path)
-    dest = _render(dest)
-    return (path, dest)
-
 
 def _mk_client():
     '''

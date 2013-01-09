@@ -221,7 +221,6 @@ def list_pkgs(*args):
     return ret
 
 
-
 def refresh_db():
     '''
     Since yum refreshes the database automatically, this runs a yum clean,
@@ -356,7 +355,6 @@ def install(name=None, refresh=False, repo='', skip_verify=False, pkgs=None,
     new = list_pkgs()
 
     return __salt__['pkg_resource.find_changes'](old,new)
-
 
 
 def upgrade():

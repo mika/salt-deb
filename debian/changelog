@@ -3,6 +3,7 @@ salt (0.11.1+ds-1) unstable; urgency=low
   * Team upload.
   * Re-roll a new orig.tar.gz for 0.11.1 that includes all the files with
     "debian" in their name. Closes: #697747
+  * Update debian/watch to drop the (temporary) +ds suffix
 
  -- Raphaël Hertzog <hertzog@debian.org>  Wed, 09 Jan 2013 10:41:47 +0100
 

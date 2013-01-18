@@ -99,7 +99,7 @@ class OptionParser(optparse.OptionParser):
 
         optparse.OptionParser.__init__(self, *args, **kwargs)
 
-        if '%prog' in self.epilog:
+        if self.epilog and '%prog' in self.epilog:
             self.epilog = self.epilog.replace('%prog', self.get_prog_name())
 
     def parse_args(self, args=None, values=None):
@@ -158,19 +158,9 @@ class OptionParser(optparse.OptionParser):
         self.exit()
 
 
-class DeprecatedConfigMessage(object):
-    _mixin_prio_ = -10
-
-    def print_config_warning(self, *args, **kwargs):
-        self.error(
-            'The "-c/--config" option is deprecated. You should now use '
-            '-c/--config-dir to point to a directory which holds all of '
-            'salt\'s configuration files.\n'
-        )
-
-
-class ConfigDirMixIn(DeprecatedConfigMessage):
+class ConfigDirMixIn(object):
     __metaclass__ = MixInMeta
+    _mixin_prio_ = -10
 
     def _mixin_setup(self):
         self.add_option(
@@ -224,10 +214,7 @@ class ConfigDirMixIn(DeprecatedConfigMessage):
                         self.config[option.dest] = value
 
     def process_config_dir(self):
-        if os.path.isfile(self.options.config_dir):
-            # XXX: Remove deprecation warning in next release
-            self.print_config_warning()
-        elif not os.path.isdir(self.options.config_dir):
+        if not os.path.isdir(self.options.config_dir):
             # No logging is configured yet
             sys.stderr.write(
                 "WARNING: \"{0}\" directory does not exist.\n".format(
@@ -246,29 +233,6 @@ class ConfigDirMixIn(DeprecatedConfigMessage):
 
     def get_config_file_path(self, configfile):
         return os.path.join(self.options.config_dir, configfile)
-
-
-class DeprecatedMasterMinionMixIn(DeprecatedConfigMessage):
-    __metaclass__ = MixInMeta
-
-    def _mixin_setup(self):
-        # XXX: Remove deprecated option in next release
-        self.add_option(
-            '--config', action="callback", callback=self.print_config_warning,
-            help='DEPRECATED. Please use -c/--config-dir from now on.'
-        )
-
-
-class DeprecatedSyndicOptionsMixIn(DeprecatedConfigMessage):
-    __metaclass__ = MixInMeta
-
-    def _mixin_setup(self):
-        # XXX: Remove deprecated option in next release
-        self.add_option(
-            '--master-config', '--minion-config',
-            action="callback", callback=self.print_config_warning,
-            help='DEPRECATED. Please use -c/--config-dir from now on.'
-        )
 
 
 class LogLevelMixIn(object):
@@ -322,7 +286,10 @@ class LogLevelMixIn(object):
             # Remove it from config so it get's the default value bellow
             self.config.pop('log_datefmt', None)
 
-        datefmt = self.config.get('log_datefmt', '%Y-%m-%d %H:%M:%S')
+        datefmt = self.config.get(
+            'log_datefmt_logfile',
+            self.config.get('log_datefmt', '%Y-%m-%d %H:%M:%S')
+        )
         log.setup_logfile_logger(
             self.config[lfkey],
             loglevel,
@@ -334,14 +301,13 @@ class LogLevelMixIn(object):
 
     def __setup_console_logger(self, *args):
         # If daemon is set force console logger to quiet
-        if hasattr(self.options, 'daemon'):
-            if self.options.daemon:
-                self.config['log_level'] = 'quiet'
-        log.setup_console_logger(
-            self.config['log_level'],
-            log_format=self.config['log_fmt_console'],
-            date_format=self.config['log_datefmt']
-        )
+        if getattr(self.options, 'daemon', False) is False:
+            # Since we're not going to be a daemon, setup the console logger
+            log.setup_console_logger(
+                self.config['log_level'],
+                log_format=self.config['log_fmt_console'],
+                date_format=self.config['log_datefmt']
+            )
 
 
 class RunUserMixin(object):
@@ -626,20 +592,15 @@ class OutputOptionsMixIn(object):
                     return
 
                 if opt.dest not in ('out', 'output_indent', 'no_color'):
-                    msg = (
-                        'The option {0} is deprecated. Please consider using '
-                        '\'--out {1}\' instead.'.format(
-                            opt.get_opt_string(),
-                            opt.dest.split('_', 1)[0]
-                        )
-                    )
                     if version.__version_info__ >= (0, 12):
                         # XXX: CLEAN THIS CODE WHEN 0.13 is about to come out
-                        self.error(msg)
-                    elif log.is_console_configured():
-                        logging.getLogger(__name__).warning(msg)
-                    else:
-                        sys.stdout.write('WARNING: {0}\n'.format(msg))
+                        self.error(
+                            'The option {0} was deprecated. Please use '
+                            '\'--out {1}\' instead.'.format(
+                                opt.get_opt_string(),
+                                opt.dest.split('_', 1)[0]
+                            )
+                        )
 
                 self.selected_output_option = opt.dest
 
@@ -674,8 +635,7 @@ class OutputOptionsWithTextMixIn(OutputOptionsMixIn):
 
 
 class MasterOptionParser(OptionParser, ConfigDirMixIn, LogLevelMixIn,
-                         DeprecatedMasterMinionMixIn, RunUserMixin,
-                         DaemonMixIn, PidfileMixin):
+                         RunUserMixin, DaemonMixIn, PidfileMixin):
 
     __metaclass__ = OptionParserMeta
 
@@ -695,9 +655,8 @@ class MinionOptionParser(MasterOptionParser):
         return config.minion_config(self.get_config_file_path('minion'))
 
 
-class SyndicOptionParser(OptionParser, DeprecatedSyndicOptionsMixIn,
-                         ConfigDirMixIn, LogLevelMixIn, RunUserMixin,
-                         DaemonMixIn, PidfileMixin):
+class SyndicOptionParser(OptionParser, ConfigDirMixIn, LogLevelMixIn,
+                         RunUserMixin, DaemonMixIn, PidfileMixin):
 
     __metaclass__ = OptionParserMeta
 

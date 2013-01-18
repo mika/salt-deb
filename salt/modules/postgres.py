@@ -101,18 +101,24 @@ def db_list(user=None, host=None, port=None, runas=None):
     (user, host, port) = _connection_defaults(user, host, port)
 
     ret = []
-    cmd = _psql_cmd('-l', user=user, host=host, port=port)
+    query = """SELECT datname as "Name", pga.rolname as "Owner", """ \
+    """pg_encoding_to_char(encoding) as "Encoding", datcollate as "Collate", datctype as "Ctype", """ \
+    """datacl as "Access privileges" FROM pg_database pgd, pg_authid pga WHERE pga.oid = pgd.datdba"""
+
+    cmd = _psql_cmd('-c', query,
+            host=host, user=user, port=port)
+
     cmdret = __salt__['cmd.run'](cmd, runas=runas)
     lines = [x for x in cmdret.splitlines() if len(x.split("|")) == 6]
-    try:
+    if not lines:
+        log.error("no results from postgres.db_list")
+    else:
+        log.debug(lines)
         header = [x.strip() for x in lines[0].split("|")]
-    except IndexError:
-        log.error("Invalid PostgreSQL output: '%s'", cmdret)
-        return []
-    for line in lines[1:]:
-        line = [x.strip() for x in line.split("|")]
-        if not line[0] == "":
-            ret.append(list(zip(header[:-1], line[:-1])))
+        for line in lines[1:]:
+            line = [x.strip() for x in line.split("|")]
+            if not line[0] == "":
+                ret.append(list(zip(header[:-1], line[:-1])))
 
     return ret
 
@@ -128,8 +134,8 @@ def db_exists(name, user=None, host=None, port=None, runas=None):
     (user, host, port) = _connection_defaults(user, host, port)
 
     databases = db_list(user=user, host=host, port=port, runas=runas)
-    for db in databases:
-        if name == dict(db).get('Name'):
+    for database in databases:
+        if name == dict(database).get('Name'):
             return True
 
     return False
@@ -185,9 +191,9 @@ def db_create(name,
         'TABLESPACE': tablespace,
     }
     with_chunks = []
-    for k, v in with_args.iteritems():
-        if v is not None:
-            with_chunks += [k, '=', v]
+    for key, value in with_args.iteritems():
+        if value is not None:
+            with_chunks += [key, '=', value]
     # Build a final query
     if with_chunks:
         with_chunks.insert(0, ' WITH')
@@ -252,7 +258,7 @@ def user_list(user=None, host=None, port=None, runas=None):
             host=host, user=user, port=port)
 
     cmdret = __salt__['cmd.run'](cmd, runas=runas)
-    lines = [x for x in cmdret.splitlines() if len(x.split("|")) == 11]
+    lines = [x for x in cmdret.splitlines() if len(x.split("|")) == 12]
     log.debug(lines)
     header = [x.strip() for x in lines[0].split("|")]
     for line in lines[1:]:

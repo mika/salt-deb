@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: salt
-Version: 0.11.1
+Version: 0.12.0
 Summary: Portable, distributed, remote execution and configuration management system
 Home-page: http://saltstack.org
 Author: Thomas S Hatch

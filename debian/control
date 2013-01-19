@@ -15,7 +15,8 @@ Build-Depends: debhelper (>= 9.20120410~),
                python-setuptools,
                python-sphinx (>= 1.0),
                python-yaml,
-               python-zmq (>= 2.1.9)
+               python-zmq (>= 2.1.9),
+               quilt
 Standards-Version: 3.9.4
 Homepage: http://saltstack.org/
 Vcs-Browser: https://github.com/mika/salt-deb

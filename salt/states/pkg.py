@@ -299,11 +299,11 @@ def latest(
     problems = []
     for pkg in desired_pkgs:
         if not avail[pkg]:
-            if not cur[pkg]:
-                msg = 'No information found for "{0}".'.format(pkg)
-                log.error(msg)
-                problems.append(msg)
-        else:
+            msg = 'No information found for "{0}".'.format(pkg)
+            log.error(msg)
+            problems.append(msg)
+        elif not cur[pkg] or __salt__['pkg.compare'](cur[pkg],
+                                                     avail[pkg]) == -1:
             targets[pkg] = avail[pkg]
 
     if problems:
@@ -410,7 +410,7 @@ def latest(
                 'comment': comment}
 
 
-def removed(name):
+def removed(name, **kwargs):
     '''
     Verify that the package is removed, this will remove the package via
     the remove function in the salt pkg module for the platform.
@@ -431,7 +431,7 @@ def removed(name):
                     'result': None,
                     'comment': 'Package {0} is set to be installed'.format(
                         name)}
-        changes['removed'] = __salt__['pkg.remove'](name)
+        changes['removed'] = __salt__['pkg.remove'](name, **kwargs)
     if not changes:
         return {'name': name,
                 'changes': changes,
@@ -443,7 +443,7 @@ def removed(name):
             'comment': 'Package {0} removed'.format(name)}
 
 
-def purged(name):
+def purged(name, **kwargs):
     '''
     Verify that the package is purged, this will call the purge function in the
     salt pkg module for the platform.
@@ -463,7 +463,7 @@ def purged(name):
                     'changes': {},
                     'result': None,
                     'comment': 'Package {0} is set to be purged'.format(name)}
-        changes['removed'] = __salt__['pkg.purge'](name)
+        changes['removed'] = __salt__['pkg.purge'](name, **kwargs)
 
     if not changes:
         return {'name': name,

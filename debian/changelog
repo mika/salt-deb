@@ -1,3 +1,10 @@
+salt (0.12.1-1) unstable; urgency=low
+
+  * [2f34fe9] New upstream version 0.12.1
+  * [f25519b] Refresh version fix
+
+ -- Ulrich Dangel <uli@debian.org>  Tue, 22 Jan 2013 22:05:26 +0000
+
 salt (0.12.0-1) unstable; urgency=low
 
   * [b6c675e] New upstream version 0.12.0
